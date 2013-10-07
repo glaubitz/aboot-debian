@@ -1,0 +1,12 @@
+Document: srm-howto
+Title: SRM Firmware Howto
+Author: Rich Payne and David Huggins-Daines
+Abstract:  This document describes how to boot Linux/Alpha using the
+ SRM console, which is the console firmware also used to boot HP Tru64 Unix
+ (also known as Digital Unix and OSF/1) and OpenVMS.
+Section: System/Administration
+
+Format: HTML
+Index: /usr/share/doc/aboot-base/SRM-HOWTO/index.html
+Files: /usr/share/doc/aboot-base/SRM-HOWTO/*.html
+

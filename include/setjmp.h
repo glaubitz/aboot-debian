@@ -11,6 +11,9 @@
  *
  * HISTORY
  * $Log: setjmp.h,v $
+ * Revision 1.1.1.1  2004/04/25 20:38:20  vorlon
+ * Initial import of upstream source
+ *
  * Revision 1.1.1.1  2001/10/08 23:03:52  wgwoods
  * initial import of CVS source from alphalinux.org, plus a couple bugfixes
  *

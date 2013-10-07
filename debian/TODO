@@ -1,0 +1,18 @@
+* Better documentation:
+  - Remove upstream README when something more up-to-date is written
+
+* Fix WARNINGS and possibly improve CFLAGS for isomarkboot
+
+* clean up our rules file/better integrate with upstream
+
+* Proper solution for the policy violation (dependency of aboot on the
+  priority optional packet aboot-base)
+
+* Proper i18n of man pages, possibly using po4a
+
+* Where appropriate, use gettext to localize messages (e.g. abootconf)
+
+* Do other distributions supporting alpha (e.g. gentoo) have some
+  "interesting" patches?
+
+* Integrate netabootwrap in SRM-HOWTO

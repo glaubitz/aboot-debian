@@ -5,6 +5,8 @@
  * kernels don't provide these to userspace code.
  */
 
+#include <stddef.h>
+
 #include <linux/types.h>
 
 extern char * ___strtok;

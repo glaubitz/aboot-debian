@@ -10,7 +10,8 @@
  *
  * These are buggy as well..
  */
- 
+
+#include <stddef.h> 
 #include <linux/types.h>
 
 char * ___strtok = NULL;

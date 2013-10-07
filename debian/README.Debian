@@ -1,0 +1,37 @@
+aboot for Debian
+----------------
+
+This package was originally created by Jeff Noxon <jeff@planetfall.com>,
+and was then maintained by Greg Johnson <gjohnson@physics.clarku.edu> 
+and later by Helge Kreutzmann <debian@helgefjell.de>.  The current 
+maintainer is Steve Langasek <vorlon@debian.org>.
+
+The last upstream maintainers were Will Woods <wgwoods@mac.com> and
+Chris Lumens <chris@bangmoney.org>.
+
+The aboot package includes code from the milo source tree (srmbootfat
+and srmbootraw) on request by the d-i; I have not tested it. You can get
+the full source from:
+http://milo.coresystems.de/source/milo-2.2-18.tar.bz2
+
+For architectures other than alpha, the aboot-cross package contains
+isomarkboot and srmbootfat required to create bootable images in d-i.
+On alpha these are contained in the aboot package.  Since they are
+architecture independent but not heavily tested on non-alpha archs use
+with proper care and please *report bugs* if they don't work on your
+favourite architecture!
+
+Notes for backporting
+---------------------
+If you want to update your kernel in Etch beyond 2.6.22 (i.e. 2.6.23-rcX or
+later) you cannot use the aboot package supplied in Etch. Simply compiling
+the Lenny version in an Etch system does not work either. To backport a 
+current aboot, do either one of the following (untested, but should work):
+
+- grab the aboot-base package from unstable, which is arch: all and has no
+  dependencies, and install it without worrying about the aboot package; the
+  bootloader itself is contained in aboot-base, so that should be sufficient
+  to get you a working 2.6.23 (or later) boot.
+- install linux-libc-dev from unstable, and build the package against that
+  instead of the linux-kernel-headers included in etch.
+

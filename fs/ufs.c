@@ -26,6 +26,10 @@
 /*
  * HISTORY
  * $Log: ufs.c,v $
+ * Revision 1.1.1.2  2007/08/16 07:04:23  vorlon
+ * Import upstream "release" 1.0pre20040408 to CVS to facilitate rebasing
+ * against the current upstream work and avoid copying patches one-by-one.
+ *
  * Revision 1.2  2003/11/08 00:03:36  wgwoods
  * Reverted changes from 0.10, merged doc changes
  *
@@ -80,17 +84,17 @@ static struct file {
 	void		*f_blk[NIADDR];	/* buffer for indir block at level i */
 	long		f_blksize[NIADDR];
 					/* size of buffer */
-	daddr_t		f_blkno[NIADDR];
+	__kernel_daddr_t		f_blkno[NIADDR];
 					/* disk address of block in buffer */
 	void		*f_buf;		/* buffer for data block */
 	long		f_buf_size;	/* size of data block */
-	daddr_t		f_buf_blkno;	/* block number of data block */
+	__kernel_daddr_t		f_buf_blkno;	/* block number of data block */
 } inode_table[MAX_OPEN_FILES];
 
 
-static int read_inode(ino_t inumber, struct file *fp)
+static int read_inode(__kernel_ino_t inumber, struct file *fp)
 {
-	daddr_t disk_block;
+	__kernel_daddr_t disk_block;
 	long offset;
 	struct dinode *dp;
 	int level;
@@ -123,9 +127,9 @@ static int read_inode(ino_t inumber, struct file *fp)
  * Given an offset in a file, find the disk block number that
  * contains that block.
  */
-static daddr_t block_map(struct file *fp, daddr_t file_block)
+static __kernel_daddr_t block_map(struct file *fp, __kernel_daddr_t file_block)
 {
-	daddr_t ind_block_num, *ind_p;
+	__kernel_daddr_t ind_block_num, *ind_p;
 	int level, idx;
 	long offset;
 	/*
@@ -202,7 +206,7 @@ static daddr_t block_map(struct file *fp, daddr_t file_block)
 			fp->f_blkno[level] = ind_block_num;
 		}
 
-		ind_p = (daddr_t *)fp->f_blk[level];
+		ind_p = (__kernel_daddr_t *)fp->f_blk[level];
 
 		if (level > 0) {
 			idx = file_block / fp->f_nindir[level-1];
@@ -219,7 +223,7 @@ static daddr_t block_map(struct file *fp, daddr_t file_block)
 static int breadi(struct file *fp, long blkno, long nblks, char *buffer)
 {
 	long block_size, offset, tot_bytes, nbytes, ncontig;
-	daddr_t disk_block;
+	__kernel_daddr_t disk_block;
 
 	tot_bytes = 0;
 	while (nblks) {
@@ -260,7 +264,7 @@ static int breadi(struct file *fp, long blkno, long nblks, char *buffer)
  * Search a directory for a name and return its
  * i_number.
  */
-static int search_dir(const char *name, struct file *fp, ino_t *inumber_p)
+static int search_dir(const char *name, struct file *fp, __kernel_ino_t *inumber_p)
 {
 	long offset, blockoffset;
 	struct direct *dp;
@@ -339,7 +343,7 @@ static int ufs_open(const char *path)
 {
 	char *cp = 0, *component;
 	int fd;
-	ino_t inumber, parent_inumber;
+	__kernel_ino_t inumber, parent_inumber;
 	int nlinks = 0;
 	struct file *fp;
 	static char namebuf[MAXPATHLEN+1];
@@ -360,7 +364,7 @@ static int ufs_open(const char *path)
 	/* copy name into buffer to allow modifying it: */
 	memcpy(namebuf, path, (unsigned)(strlen(path) + 1));
 
-	inumber = (ino_t) ROOTINO;
+	inumber = (__kernel_ino_t) ROOTINO;
 	if (read_inode(inumber, fp) < 0) {
 		return -1;
 	}
@@ -407,9 +411,9 @@ static int ufs_open(const char *path)
 			{
 				/* read file for symbolic link: */
 				long rc, offset;
-				daddr_t	disk_block;
+				__kernel_daddr_t	disk_block;
 
-				disk_block = block_map(fp, (daddr_t)0);
+				disk_block = block_map(fp, (__kernel_daddr_t)0);
 				offset = fsbtodb(fs, disk_block) * DEV_BSIZE
 				  + partition_offset;
 				rc = cons_read(dev, namebuf, sizeof(namebuf),
@@ -426,7 +430,7 @@ static int ufs_open(const char *path)
 			if (*cp != '/') {
 				inumber = parent_inumber;
 			} else
-			  inumber = (ino_t)ROOTINO;
+			  inumber = (__kernel_ino_t)ROOTINO;
 
 			if (read_inode(inumber, fp))
 			  return -1;

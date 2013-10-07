@@ -11,7 +11,8 @@
  */
 #include <linux/kernel.h>
 
-#include <asm/page.h>
+#include <stddef.h>
+typedef __kernel_ssize_t ssize_t;
 
 #include "aboot.h"
 #include "bootfs.h"

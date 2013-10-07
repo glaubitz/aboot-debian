@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+if [ ! -e /etc/aboot.conf ]; then
+	cp -a /usr/share/aboot/aboot.conf /etc/
+fi
+
+#DEBHELPER#

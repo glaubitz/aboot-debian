@@ -19,6 +19,7 @@
 
 #else /* Linux 2.4.0 or later */
 
+typedef unsigned short umode_t;
 #  undef __KERNEL__
 #  include <linux/ext2_fs.h>
 #  include <linux/fs.h>

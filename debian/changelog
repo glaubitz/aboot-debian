@@ -1,0 +1,302 @@
+aboot (1.0~pre20040408-4) unstable; urgency=low
+
+  * Add Vcs-Bzr field to debian/control.
+  * Add headers needed for size_t and other types with recent
+    linux-libc-dev.
+  * Pull in include/linux/ext2_fs.h from the Linux 3.2.46 source, since it's
+    no longer included in linux-libc-dev and recent versions are much less
+    userspace-friendly.
+  * fs/ufs.c, include/ufs.h: replace undefined types with the modern kernel
+    types.
+  * tools/objstrip.c: fix elf structure definitions.
+  * tools/isomarkboot.c: avoid mixing kernel and libc headers.
+    Closes: #652598.
+  * Correct accidental revert of upstream sources in 1.0~pre20040408.
+    Closes: #524916.
+  * Replace mkisofs with genisoimage in Suggests.  Closes: #601260.
+  * Fix debian/control to use ${misc:Depends} everywhere.  Thanks to
+    Benjamin Kerensa <bkerensa@ubuntu.com> for the patch.  Closes: #692636.
+  * Update debian/copyright to copyright-format 1.0.
+  * Modernize debian/rules: debhelper 9, dh(1).
+  * Add rough support for cross-building.
+  * Split sgmtools-lite into Build-Depends-Indep.
+  * Use Breaks/Replaces instead of Conflicts for historical replaces.
+  * Fix the doc-base section.
+  * Bump to Standards-Version 3.9.3; no changes required.
+
+ -- Steve Langasek <vorlon@debian.org>  Sun, 06 Oct 2013 23:35:32 -0700
+
+aboot (1.0~pre20040408-3) unstable; urgency=low
+
+  [ Helge Kreutzmann ]
+  * Fix wrong sync from alioth for aboot.conf.(sgml|5), e2writeboot.8,
+    swriteboot.8
+  * debian/control: Move section to admin to match overrides
+  * Remove incorrect isomarkboot.8 (as upstream did), this is in section 1
+  * Update my e-mail address also in every man page (where applicable)
+  * Slightly improve debian/rules
+  * Add a note for people intending to recompile aboot on stable (Etch)
+  * Update TODO
+  * Update download location of milo in appropriate READMEs 
+  * Bump standards version to 3.7.3.0 (no changes required)
+
+  [ Steve Langasek ]
+  * Drop the reference to asm/page.h from zip/main.c since it isn't actually
+    needed, fixing a build failure with current linux-libc-dev; thanks to
+    Philipp Benner <pbenner@uni-osnabrueck.de> for pointing out the obvious
+    fix.  Closes: #480364.
+  * disk.c: drop reference to asm/elf.h.
+  * tools/objstrip.c: drop reference to asm/elf.h; use a.out.h instead
+    of linux/a.out.h, which is no longer provided by the kernel; and
+    include a copy of the elf_check_arch() define from the old asm/elf.h
+    in the event that we're building against recent kernel headers.
+  * tools/elfencap.c: there is only one right answer for each of ELF_CLASS,
+    ELF_DATA, and ELF_ARCH; reference these values directly, for
+    compatibility with linux-libc-dev 2.6.24 and above.
+  * Take over from Helge as maintainer; thanks for all your work!
+    Closes: #315592.
+
+ -- Steve Langasek <vorlon@debian.org>  Mon, 02 Jun 2008 09:33:19 -0700
+
+aboot (1.0~pre20040408-2) unstable; urgency=low
+
+  * Include userspace headers from lib/isolib.c instead of kernel
+    headers; this isn't kernel code anyway, and the kernel headers don't
+    work right on i386 the way they're being used.
+
+ -- Steve Langasek <vorlon@debian.org>  Wed, 22 Aug 2007 20:29:59 -0700
+
+aboot (1.0~pre20040408-1) unstable; urgency=low
+
+  [ Steve Langasek ]
+  * New upstream version, pulled from CVS snapshot.
+  * Drop separate faq-src directory, now merged upstream as doc/faq
+  * Fix header references in multiple files, and import a local copy of
+    asm-alpha/pal.h and asm-alpha/system.h from the kernel sources for
+    use by head.S and aboot.c, for the switch to linux-libc-dev in
+    lenny.  Closes: #437296.
+  * Update debian/rules to use DEB_HOST_GNU_CPU instead of
+    DEB_HOST_GNU_TYPE, to fix a misbuild in unstable.
+  * Fix wrong manpage section for srmbootraw(8) in the clean target
+  * Update bootlx to ignore ELF header sections not of type PT_LOAD when
+    loading the kernel, so that the new PT_NOTE sections in 2.6.23rc1 and
+    above don't cause load failures.  Thanks to Richard Henderson for the
+    patch.  Closes: #438431.
+  * Drop unneeded build-dependency on linux-kernel-headers, which is
+    build-essential.
+
+  [ Helge Kreutzmann ]
+  * Fix minor typos in German man pages.
+  * Update my e-mail address in debian related files
+  * Do not ignore errors in clean targets (thanks, lintian)
+  * Bump standards version to 3.7.2.2
+  * Bump dephelper level to 5
+
+ -- Steve Langasek <vorlon@debian.org>  Wed, 22 Aug 2007 14:31:26 -0700
+
+aboot (0.9b-3) unstable; urgency=low
+
+  * Synced man pages with upstream: aboot.conf.sgml, aboot.sgml,
+    abootconf.sgml, e2writeboot.8, isomarkboot.sgml, sdisklabel.sgml,
+    swriteboot.8.
+  * Took german translation of man pages from upstream.
+  * Minor code issues synced from upstream CVS (partially for testing
+    builds). Closes: #258594.
+  * Include patch to make isomarkboot endian-safe. Thanks to Steve McIntyre,
+    Closes: #253846.
+  * Add netabootwrap man page (english and german).
+  * Fix netabootwrap so that it stops claiming to be bootp.
+
+ -- Helge Kreutzmann <kreutzm@zola.itp.uni-hannover.de>  Mon, 12 Jul 2004 17:02:10 +0200
+
+aboot (0.9b-2) unstable; urgency=low
+
+  * Actually install the netabootwrap binary so that people can use it
+    (really-closes: #127303).
+
+ -- Steve Langasek <vorlon@debian.org>  Sat,  8 May 2004 16:20:42 -0500
+
+aboot (0.9b-1) unstable; urgency=low
+
+  * New maintainer.
+  * Build all our tools with "-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64",
+    so they can handle accessing files > 4GB (e.g., DVD images for
+    isomarkboot) (closes: #228235).
+  * Include patch from Chris Lumens (upstream) for building with
+    additional flags (e.g. "-g").
+  * Enable noopt in DEB_BUILD_OPTIONS build with "-g" always for now; also
+    stripping can be disabled now.
+  * Enable the all-package to be build on non-alpha archs as well 
+    (typo & thinko in debian/rules).
+  * FOREIGN for building on non-alpha archs is gone, it was not necessary.
+  * Conflict aboot with aboot-cross as the latter package
+    is no longer build on Alpha but contained in aboot.
+  * Fixed dependencies (dropped woody only docbook2man)
+  * Added SRM-HOWTO (and updated description) built from SGML sources and
+    added into doc-base.
+  * Removed source diff target in rules file
+  * Turn off DH_VERBOSE, so our builds are a bit more palatable
+  * Don't forget to create the 'boot' directory in the install target
+  * Fix the srmbootfat manpage's section (8->1)
+  * Updated TODO list.
+  * Improved & split man pages for srmbootfat/srmbootraw.
+  * Clarified copyright (we are using a stable upstream release).
+  * Slightly updated isomarkboot.sgml
+  * Include netboot patch from
+    Soohoon Lee <soohoon.lee@api-networks.com> (closes: #127303).
+
+ -- Steve Langasek <vorlon@debian.org>  Mon,  3 May 2004 19:43:19 -0500
+
+aboot (0.9b-0.3) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Fix package split so that aboot-cross isn't needed on alpha,
+    and aboot-base isn't attempted on non-alpha systems (in spite of
+    being arch: all).
+  * Put srmbootfat and isomarkboot both in /usr/bin, for consistency.
+  * Fix package priorities/sections to match archive overrides.
+  * Reorder headers in lib/isolib.c, needed for building on i386.
+  * Change aboot.conf from a conffile to maintainer script-managed
+    config file, so that aboot-installer can do its job.
+
+ -- Steve Langasek <vorlon@debian.org>  Sun,  4 Jan 2004 17:03:46 -0600
+
+aboot (0.9b-0.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Change the order of docbook2man and docbook-utils in the
+    build-depends list, to satisfy the autobuilders. Closes: #225938
+
+ -- Steve Langasek <vorlon@debian.org>  Sun,  4 Jan 2004 13:51:35 -0600
+
+aboot (0.9b-0.1) unstable; urgency=low
+
+  *  NMU.
+  *  Upgraded to 0.9b.
+  *  Switched from dh_installmanpages to dh_installman.
+  *  Included latest version of all man pages. Closes: #57804
+  *  All man pages are now created at build time from their sgml source.
+  *  Updated README.Debian -- upstream maintainer is now Will Woods -- and
+     copyright -- home page is sourceforge now --.
+  *  Move isomarkboot to /usr/bin and the manpage into section 1
+  *  Include upstream changelog
+  *  Upgraded to standards version 3.6.1.0. Partially support DEB_BUILD_OPTIONS.
+  *  Split package into three packages to enable isomarkboot to be used on
+     other archs (e.g. for d-i); since we run into conflicts with two
+     packages three were needed, where aboot-base just contains common files
+     needed for booting (which need to be built on alpha). Closes: #211777
+  *  We depend on "linux-kernel-headers" to properly build isomarkboot,
+     patched "include/utils.h" to properly include the "asm"-headers
+  *  Patched "lib/Makefile" to only use "no-fp-regs" for isomarkboot if
+     building for alpha
+  *  Added srmbootfat and srmbootraw from the milo package
+     http://www.suse.de/~stepan/source/milo-2.2-18.tar.bz2
+     The man page was slightly updated (spell checking, formatting, SEE ALSO).
+     Closes: #173620
+     Applied a patch from Falk Hueffner <falk.hueffner@student.uni-tuebingen.de>
+     to get_fat_entry in srmbootfat/srmbootfat.c to make it portable
+  *  Stole patches from CVS HEAD/Jeff.Wiedemeier@hp.com for USB console and
+     to check kernel memory against console memory descriptors. 
+     These two patches should allow booting on Wildfire.
+  *  Disable check for vol-set-size in lib/isolib.c as sets of volumes are
+     perfectly fine. For explanation of this term, see e.g. section 4.16 and
+     4.17 in http://www.y-adagio.com/public/standards/iso_cdromr/sect_1.htm
+     Closes: #149840
+  *  Added extra-args patch from RedHat/Will Wood to allow calls like
+     dka0 -fl "0 console=ttyS0"
+     This will be in the next official aboot release as well.
+
+ -- Helge Kreutzmann <kreutzm@itp.uni-hannover.de>  Sat, 13 Dec 2003 18:32:43 +0100
+
+aboot (0.9-1.1) unstable; urgency=low
+
+  * NMU.
+  * Use -fno-builtin-printf when compiling, so we don't end up with
+    references to gcc's implementation.  Closes: 205864
+
+ -- Steve Langasek <vorlon@debian.org>  Sat, 23 Aug 2003 18:04:48 -0500
+
+aboot (0.9-1) unstable; urgency=low
+
+  * New upstream release.  Closes: #117973
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Sun, 11 Nov 2001 23:19:00 -0500
+
+aboot (0.8-1) unstable; urgency=low
+
+  * New upstream (from CVS)
+  * I am calling this version of aboot from CVS 0.8.
+  * Minor tweeks to make it compile with kernel 2.4.x headers.
+  * e2writeboot now returns non-zero on error.  Closes: #107757
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Wed, 15 Aug 2001 01:55:36 -0400
+
+aboot (0.7a-1) unstable; urgency=low
+
+  * New upstream release
+  * added Build-Depends line to debian/control.  Closes: #70114
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Fri,  8 Sep 2000 15:57:32 -0400
+
+aboot (0.7-1) frozen unstable; urgency=low
+
+  * New upstream release
+  * Needed for potato boot-floppies
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Thu,  4 May 2000 15:48:25 -0400
+
+aboot (0.6a-1) frozen unstable; urgency=low
+
+  * New upstream version.
+  * Updated README.Debian.  Closes: #57803
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Mon, 27 Mar 2000 00:46:39 -0500
+
+aboot (0.5-5) unstable; urgency=low
+
+  * Added "ext2" patch form RedHat aboot for new style ext2
+    filesystems.  Closes: #54388
+  * Added "big" patch from RedHat aboot.
+  * Closes: #34109, #34368: previously fixed -- see below.
+
+ -- Gregory W. Johnson <gjohnson@physics.clarku.edu>  Wed, 12 Jan 2000 01:26:26 -0500
+
+aboot (0.5-4) unstable; urgency=low
+
+  * Adopted package from Jeff.
+  * Updated to FHS (/usr/doc -> /usr/share/doc)
+  * Added patch from Jay Estabrook (via RedHat) for volumes larger than
+    2GB.
+
+ -- Gregory W. Johnson <gwj@debian.org>  Fri,  1 Oct 1999 01:40:58 -0400
+
+aboot (0.5-3) unstable; urgency=low
+
+  * Included patches from Loic Prylli, closing #34109:
+    - A bug fix in isolib.c which could cause isomarkboot to segfault (and
+      probably also bootlx to have undefined behaviour at run-time), if a
+      directory entry is in the middle of a 2k block.
+    - A bug fix for sdisklabel whcih segfault when called with only one
+      argument
+    - some more functionality in isomarkboot to set a offset to a root
+      filesystem image in the CD in the application_data fied of the first
+      volume descriptor.
+  * Increase maximum partitions from 8 to 16
+  * Include sdisklabel in package (fixes #34368)
+
+ -- Jefferson E. Noxon <jeff@planetfall.com>  Thu, 11 Mar 1999 17:05:12 -0600
+
+aboot (0.5-2) unstable; urgency=low
+
+  * Several bugfixes.
+  * Included objdump from kernel sources.
+  * Now works with binutils >= 2.9.
+  * Cleaned up debian/rules and build process.
+
+ -- Jefferson E. Noxon <jeff@planetfall.com>  Mon, 12 Oct 1998 12:04:43 -0500
+
+aboot (0.5-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Jefferson E. Noxon <jeff@planetfall.com>  Sat,  3 Oct 1998 16:31:50 -0500

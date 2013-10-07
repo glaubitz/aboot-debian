@@ -30,20 +30,23 @@ export
 #
 # There shouldn't be any need to change anything below this line.
 #
+TOP 		= $(shell pwd)
 LOADADDR	= 20000000
 
-ABOOT_LDFLAGS = -static -N -Taboot.lds
-
-CC		= gcc
-TOP		= $(shell pwd)
-ifeq ($(TESTING),)
-CPPFLAGS	= $(CFGDEFS) -I$(TOP)/include
-CFLAGS		= $(CPPFLAGS) -D__KERNEL__ -Os -Wall -fno-builtin -mno-fp-regs -ffixed-8
-else
-CPPFLAGS	= -DTESTING $(CFGDEFS) -I$(TOP)/include
-CFLAGS		= $(CPPFLAGS) -O -g3 -Wall -D__KERNEL__ -ffixed-8
+ifndef $($(CC))
+CC 		= gcc
 endif
-ASFLAGS		= $(CPPFLAGS)
+
+ifeq ($(TESTING),)
+override CPPFLAGS	+= $(CFGDEFS) -I$(TOP)/include
+override CFLAGS		+= $(CPPFLAGS) -D__KERNEL__ -mcpu=ev4 -Os -Wall -fno-builtin -Wcast-align -mno-fp-regs -ffixed-8 -fno-builtin-printf
+else
+override CPPFLAGS	+= -DTESTING $(CFGDEFS) -I$(TOP)/include
+override CFLAGS		+= $(CPPFLAGS) -O -g3 -Wall -D__KERNEL__ -ffixed-8
+endif
+
+ABOOT_LDFLAGS 	= -static -N -Taboot.lds
+override ASFLAGS		+= $(CPPFLAGS)
 
 
 .c.s:
@@ -80,6 +83,13 @@ diskboot:	bootlx sdisklabel/sdisklabel sdisklabel/swriteboot \
 
 netboot: vmlinux.bootp
 
+bootloader.h: net_aboot.nh b2c
+	./b2c net_aboot.nh bootloader.h bootloader
+
+netabootwrap: netabootwrap.c bootloader.h
+	$(CC) $@.c $(CFLAGS) -o $@ 
+	
+
 bootlx:	aboot tools/objstrip
 	tools/objstrip -vb aboot bootlx
 
@@ -92,10 +102,10 @@ install-man-gz:
 install: tools/abootconf tools/e2writeboot tools/isomarkboot \
 	sdisklabel/swriteboot install-man
 	install -d $(bindir) $(bootdir)
-	install -c -s tools/abootconf $(bindir)
-	install -c -s tools/e2writeboot $(bindir)
-	install -c -s tools/isomarkboot $(bindir)
-	install -c -s sdisklabel/swriteboot $(bindir)
+	install -c tools/abootconf $(bindir)
+	install -c tools/e2writeboot $(bindir)
+	install -c tools/isomarkboot $(bindir)
+	install -c sdisklabel/swriteboot $(bindir)
 	install -c bootlx $(bootdir)
 
 installondisk:	bootlx sdisklabel/swriteboot
@@ -113,6 +123,7 @@ vmlinux.bootp: net_aboot.nh $(VMLINUXGZ) net_pad
 	cat net_aboot.nh $(VMLINUXGZ) net_pad > $@
 
 net_aboot.nh: net_aboot tools/objstrip
+	strip net_aboot
 	tools/objstrip -vb net_aboot $@
 
 net_aboot: $(ABOOT_OBJS) $(ABOOT_OBJS) $(NET_OBJS) $(LIBS)
@@ -124,7 +135,7 @@ net_pad:
 clean:	sdisklabel/clean tools/clean lib/clean
 	rm -f aboot abootconf net_aboot net_aboot.nh net_pad vmlinux.bootp \
 		$(ABOOT_OBJS) $(DISK_OBJS) $(NET_OBJS) bootlx \
-		include/ksize.h vmlinux.nh
+		include/ksize.h vmlinux.nh b2c bootloader.h netabootwrap
 
 distclean: clean
 	find . -name \*~ | xargs rm -f

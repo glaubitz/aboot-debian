@@ -42,6 +42,9 @@
 /*
  * HISTORY
  * $Log: ufs.h,v $
+ * Revision 1.1.1.1  2004/04/25 20:38:21  vorlon
+ * Initial import of upstream source
+ *
  * Revision 1.1.1.1  2001/10/08 23:03:52  wgwoods
  * initial import of CVS source from alphalinux.org, plus a couple bugfixes
  *
@@ -141,8 +144,8 @@
 #define SBSIZE		8192
 #define	BBOFF		((off_t)(0))
 #define	SBOFF		((off_t)(BBOFF + BBSIZE))
-#define	BBLOCK		((daddr_t)(0))
-#define	SBLOCK		((daddr_t)(BBLOCK + BBSIZE / DEV_BSIZE))
+#define	BBLOCK		((__kernel_daddr_t)(0))
+#define	SBLOCK		((__kernel_daddr_t)(BBLOCK + BBSIZE / DEV_BSIZE))
 
 /*
  * Addresses stored in inodes are capable of addressing fragments
@@ -169,7 +172,7 @@
  * this purpose, however numerous dump tapes make this
  * assumption, so we are stuck with it)
  */
-#define	ROOTINO		((ino_t)2)	/* i number of all roots */
+#define	ROOTINO		((__kernel_ino_t)2)	/* i number of all roots */
 
 /*
  * MINBSIZE is the smallest allowable block size.
@@ -222,10 +225,10 @@ struct fs
 {
 	int	xxx1;			/* struct	fs *fs_link;*/
 	int	xxx2;			/* struct	fs *fs_rlink;*/
-	daddr_t	fs_sblkno;		/* addr of super-block in filesys */
-	daddr_t	fs_cblkno;		/* offset of cyl-block in filesys */
-	daddr_t	fs_iblkno;		/* offset of inode-blocks in filesys */
-	daddr_t	fs_dblkno;		/* offset of first data after cg */
+	__kernel_daddr_t	fs_sblkno;		/* addr of super-block in filesys */
+	__kernel_daddr_t	fs_cblkno;		/* offset of cyl-block in filesys */
+	__kernel_daddr_t	fs_iblkno;		/* offset of inode-blocks in filesys */
+	__kernel_daddr_t	fs_dblkno;		/* offset of first data after cg */
 	int	fs_cgoffset;		/* cylinder group offset in cylinder */
 	int	fs_cgmask;		/* used to calc mod fs_ntrak */
 	ext_time_t fs_time;    		/* last time written */
@@ -265,7 +268,7 @@ struct fs
 	int	fs_headswitch;		/* head switch time, usec */
 	int	fs_trkseek;		/* track-to-track seek, usec */
 /* sizes determined by number of cylinder groups and their sizes */
-	daddr_t fs_csaddr;		/* blk addr of cyl grp summary area */
+	__kernel_daddr_t fs_csaddr;		/* blk addr of cyl grp summary area */
 	int	fs_cssize;		/* size of cyl grp summary area */
 	int	fs_cgsize;		/* cylinder group size */
 /* these fields are derived from the hardware */
@@ -303,7 +306,7 @@ struct fs
 	int	fs_postbloff;		/* (short) rotation block list head */
 	int	fs_rotbloff;		/* (u_char) blocks for each rotation */
 	int	fs_magic;		/* magic number */
-	u_char	fs_space[1];		/* list of blocks for each rotation */
+	unsigned char	fs_space[1];		/* list of blocks for each rotation */
 /* actually longer */
 };
 /*
@@ -327,7 +330,7 @@ struct fs
 #define fs_rotbl(fs) \
     (((fs)->fs_postblformat == FS_42POSTBLFMT) \
     ? ((fs)->fs_space) \
-    : ((u_char *)((char *)(fs) + (fs)->fs_rotbloff)))
+    : ((unsigned char *)((char *)(fs) + (fs)->fs_rotbloff)))
 
 /*
  * Convert cylinder group to base address of its global summary info.
@@ -360,7 +363,7 @@ struct	cg {
 	int	cg_freeoff;		/* (u_char) free block map */
 	int	cg_nextfreeoff;		/* (u_char) next available space */
 	int	cg_sparecon[16];	/* reserved for future use */
-	u_char	cg_space[1];		/* space for cylinder group maps */
+	unsigned char	cg_space[1];		/* space for cylinder group maps */
 /* actually longer */
 };
 /*
@@ -381,7 +384,7 @@ struct	cg {
 #define cg_blksfree(cgp) \
     (((cgp)->cg_magic != CG_MAGIC) \
     ? (((struct ocg *)(cgp))->cg_free) \
-    : ((u_char *)((char *)(cgp) + (cgp)->cg_freeoff)))
+    : ((unsigned char *)((char *)(cgp) + (cgp)->cg_freeoff)))
 #define cg_chkmagic(cgp) \
     ((cgp)->cg_magic == CG_MAGIC || ((struct ocg *)(cgp))->cg_magic == CG_MAGIC)
 
@@ -406,7 +409,7 @@ struct	ocg {
 	short	cg_b[32][8];		/* positions of free blocks */
 	char	cg_iused[256];		/* used inode map */
 	int	cg_magic;		/* magic number */
-	u_char	cg_free[1];		/* free block map */
+	unsigned char	cg_free[1];		/* free block map */
 /* actually longer */
 };
 
@@ -421,7 +424,7 @@ struct	ocg {
  * Cylinder group macros to locate things in cylinder groups.
  * They calc file system addresses of cylinder group data structures.
  */
-#define	cgbase(fs, c)	((daddr_t)((fs)->fs_fpg * (c)))
+#define	cgbase(fs, c)	((__kernel_daddr_t)((fs)->fs_fpg * (c)))
 #define cgstart(fs, c) \
 	(cgbase(fs, c) + (fs)->fs_cgoffset * ((c) & ~((fs)->fs_cgmask)))
 #define	cgsblock(fs, c)	(cgstart(fs, c) + (fs)->fs_sblkno)	/* super blk */
@@ -438,7 +441,7 @@ struct	ocg {
 #define	itoo(fs, x)	((x) % INOPB(fs))
 #define	itog(fs, x)	((x) / (fs)->fs_ipg)
 #define	itod(fs, x) \
-	((daddr_t)(cgimin(fs, itog(fs, x)) + \
+	((__kernel_daddr_t)(cgimin(fs, itog(fs, x)) + \
 	(blkstofrags((fs), (((x) % (fs)->fs_ipg) / INOPB(fs))))))
 
 /*
@@ -572,9 +575,9 @@ struct	ocg {
 #define	MAXNAMLEN	255
 
 struct	direct {
-	u_int	d_ino;			/* inode number of entry */
-	u_short	d_reclen;		/* length of this record */
-	u_short	d_namlen;		/* length of string in d_name */
+	unsigned int	d_ino;			/* inode number of entry */
+	unsigned short	d_reclen;		/* length of this record */
+	unsigned short	d_namlen;		/* length of string in d_name */
 	char	d_name[MAXNAMLEN + 1];	/* name with length <= MAXNAMLEN */
 };
 
@@ -599,13 +602,13 @@ struct	direct {
 #define	NDADDR	12		/* direct addresses in inode */
 #define	NIADDR	3		/* indirect addresses in inode */
 
-#define	MAX_FASTLINK_SIZE	((NDADDR + NIADDR) * sizeof(daddr_t))
+#define	MAX_FASTLINK_SIZE	((NDADDR + NIADDR) * sizeof(__kernel_daddr_t))
 
 struct 	icommon {
-	u_short	ic_mode;	/*  0: mode and type of file */
+	unsigned short	ic_mode;	/*  0: mode and type of file */
 	short	ic_nlink;	/*  2: number of links to file */
-	u_short	ic_uid;		/*  4: owner's user id */
-	u_short	ic_gid;		/*  6: owner's group id */
+	unsigned short	ic_uid;		/*  4: owner's user id */
+	unsigned short	ic_gid;		/*  6: owner's group id */
 	long	ic_size;	/*  8: number of bytes in file */
 	ext_time_t ic_atime;	/* 16: time last accessed */
 	int	ic_atspare;
@@ -615,8 +618,8 @@ struct 	icommon {
 	int	ic_ctspare;
 	union {
 	    struct {
-		daddr_t	Mb_db[NDADDR];	/* 40: disk block addresses */
-		daddr_t	Mb_ib[NIADDR];	/* 88: indirect blocks */
+		__kernel_daddr_t	Mb_db[NDADDR];	/* 40: disk block addresses */
+		__kernel_daddr_t	Mb_ib[NIADDR];	/* 88: indirect blocks */
 	    } ic_Mb;
 	    char	ic_Msymlink[MAX_FASTLINK_SIZE];
 					/* 40: symbolic link name */

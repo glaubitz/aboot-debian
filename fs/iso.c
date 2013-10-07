@@ -6,6 +6,7 @@
  * functionality to the Linux bootstrapper.  All we can do is
  * open and read files... but that's all we need 8-)
  */
+#include <stddef.h>
 #include <cons.h>
 #include <bootfs.h>
 #include <isolib.h>

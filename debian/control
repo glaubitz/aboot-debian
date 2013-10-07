@@ -1,0 +1,44 @@
+Source: aboot
+Build-Depends: debhelper (>= 9), sp, sgmlspl, docbook-utils
+Build-Depends-Indep: sgmltools-lite
+Section: admin
+Priority: standard
+Maintainer: Steve Langasek <vorlon@debian.org>
+Standards-Version: 3.9.3
+Vcs-Bzr: http://bzr.debian.org/bzr/pkg-aboot/aboot/branches/debian/
+
+Package: aboot
+Architecture: alpha
+Depends: ${shlibs:Depends}, ${misc:Depends}, aboot-base
+Conflicts: aboot-cross
+Description: Linux bootloader for the SRM console
+ This is the standard Linux bootloader for machines with SRM firmware
+ installed.  If you're using ARC or AlphaBIOS, you have to use MILO
+ instead.
+ .
+ Aboot allows booting from hard disk, CD-ROM, and floppy.  It also
+ provides what you need to make kernel images that can be booted over
+ a network using BOOTP/TFTP.
+
+Package: aboot-cross
+Architecture: any
+Priority: optional
+Depends: ${shlibs:Depends}, ${misc:Depends}, aboot-base
+Breaks: aboot (<< 0.9-1.2)
+Replaces: aboot (<< 0.9-1.2)
+Suggests: genisoimage
+Description: utility to create bootable ISO-Images for Linux/Alpha
+ If you want to create bootable CD-ROMs or floppies for the Linux/Alpha
+ platform, you need this utility. It is not needed for normal system
+ installation or operation.
+
+Package: aboot-base
+Priority: optional
+Architecture: all
+Depends: ${misc:Depends}
+Conflicts: aboot (<< 0.9-1.2)
+Description: base files required for bootable media on Linux/Alpha
+ This package contains the files to create bootable media for Linux/Alpha.
+ No binaries are included to enable any architecture to use these files.
+ .
+ Also a current version of the SRM-FAQ is included.

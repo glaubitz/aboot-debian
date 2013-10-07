@@ -1,0 +1,75 @@
+#!/usr/bin/make -f
+
+DEB_HOST_GNU_CPU  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
+DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+export DEB_CPPFLAGS_MAINT_APPEND = -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+export DEB_CFLAGS_MAINT_APPEND = -Wall
+
+CC ?= gcc
+ifneq ($(DEB_HOST_GNU_TYPE),$(DEB_BUILD_GNU_TYPE))
+	CC = $(DEB_HOST_GNU_TYPE)-$(CC)
+endif
+
+ifeq (alpha,$(DEB_HOST_GNU_CPU))
+	export DH_OPTIONS=-Naboot-cross
+else
+	export DH_OPTIONS=-paboot-cross
+endif
+
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+      LDFLAGS += +s
+#     TESTING = "TESTING=yes"
+      CPPFLAGS += "-O0"
+endif
+
+%:
+	dh $@
+
+override_dh_auto_build:
+ifeq (alpha,$(DEB_HOST_GNU_CPU))
+	$(MAKE) $(TESTING) all netabootwrap CC=$(CC) $(shell dpkg-buildflags --export=configure)
+	$(MAKE) -C doc/man all
+	$(MAKE) -C doc/man/de all
+	$(MAKE) -C srmbootfat all CC=$(CC) $(shell dpkg-buildflags --export=configure)
+ifneq (,$(filter aboot-base, $(shell dh_listpackages)))
+	$(MAKE) $(TESTING) bootlx net_aboot.nh net_pad CC=$(CC) $(shell dpkg-buildflags --export=configure)
+	$(MAKE) -C doc/faq
+endif
+else
+	$(MAKE) -C tools $(TESTING) isomarkboot CC=$(CC) $(shell dpkg-buildflags --export=configure)
+	$(MAKE) -C srmbootfat srmbootfat srmbootfat.1 CC=$(CC) $(shell dpkg-buildflags --export=configure)
+	$(MAKE) -C doc/man isomarkboot.1
+	$(MAKE) -C doc/man/de isomarkboot.de.1 srmbootfat.de.1
+endif
+
+override_dh_auto_clean:
+	$(MAKE) distclean
+	$(MAKE) -C doc/man clean
+	$(MAKE) -C doc/man/de clean
+	$(MAKE) -C doc/faq clean
+	$(MAKE) -C srmbootfat clean
+
+override_dh_auto_install:
+ifeq (alpha,$(DEB_HOST_GNU_CPU))
+ifneq (,$(filter aboot, $(shell dh_listpackages)))
+	$(MAKE) root=`pwd`/debian/aboot install
+	install -m 644 aboot.conf debian/aboot/usr/share/aboot/aboot.conf
+	mv debian/aboot/sbin/isomarkboot debian/aboot/usr/bin/
+	install -m 755 sdisklabel/sdisklabel debian/aboot/sbin/sdisklabel
+	install -m 755 srmbootfat/srmbootraw debian/aboot/sbin/srmbootraw
+	install -m 755 srmbootfat/srmbootfat debian/aboot/usr/bin/
+	install -m 755 netabootwrap debian/aboot/usr/bin/
+	rm -rf debian/aboot/boot
+	rm -rf debian/aboot/usr/share/man/man1
+endif
+else
+	install -m 755 tools/isomarkboot debian/aboot-cross/usr/bin
+	install -m 755 srmbootfat/srmbootfat debian/aboot-cross/usr/bin
+endif
+ifneq (,$(filter aboot-base, $(shell dh_listpackages)))
+	install -m 644 bootlx debian/aboot-base/boot/bootlx
+	install -m 644 net_aboot.nh debian/aboot-base/boot/
+	install -m 644 net_pad debian/aboot-base/boot/
+endif

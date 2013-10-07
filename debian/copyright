@@ -1,0 +1,58 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: aboot
+Source: http://www.sf.net/projects/aboot
+
+Files: *
+Copyright: 1990,1991,1993 Arizona Board of Regents
+           1991-1992,1996 Linus Torvalds
+           1992-1993 Jean-loup Gailly
+           1992-1995 Remy Card (card@masi.ibp.fr)
+           1993 Hannu Savolainen
+           1995-1996 David Mosberger-Tang <davidm@azstarnet.com>
+           1995 Alain Knaff
+           1996 Dave Larson <dlarson@cs.arizona.edu>
+           1996 Michael Schwingen <rincewind@discworld.oche.de>
+           1998 Nikita Schmidt <cetus@snowball.ucd.ie>
+           2000 David Huggins-Daines <dhd@linuxcare.com>
+           2001-2004 Will Woods <wwoods@redhat.com>
+           2008-2013 Steve Langasek <vorlon@debian.org>
+License: GPL-2+
+
+Files: fs/ufs.c include/ufs.h
+Copyright: 1993 Carnegie Mellon University
+License: BSD-2-Clause-CMU
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ can be found in `/usr/share/common-licenses/GPL'.
+
+License: BSD-2-Clause-CMU
+ Permission to use, copy, modify and distribute this software and its
+ documentation is hereby granted, provided that both the copyright
+ notice and this permission notice appear in all copies of the
+ software, derivative works or modified versions, and any portions
+ thereof, and that both notices appear in supporting documentation.
+ .
+ CARNEGIE MELLON ALLOWS FREE USE OF THIS SOFTWARE IN ITS "AS IS"
+ CONDITION.  CARNEGIE MELLON DISCLAIMS ANY LIABILITY OF ANY KIND FOR
+ ANY DAMAGES WHATSOEVER RESULTING FROM THE USE OF THIS SOFTWARE.
+ .
+ Carnegie Mellon requests users of this software to return to
+ .
+  Software Distribution Coordinator  or  Software.Distribution@CS.CMU.EDU
+  School of Computer Science
+  Carnegie Mellon University
+  Pittsburgh PA 15213-3890
+ .
+ any improvements or extensions that they make and grant Carnegie Mellon
+ the rights to redistribute these changes.

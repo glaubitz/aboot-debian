@@ -21,15 +21,17 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <linux/a.out.h>
+#include <a.out.h>
 #include <linux/coff.h>
 #include <linux/param.h>
 #include <string.h>
 
 #ifdef __ELF__
-# include <asm/elf.h>
 # include <linux/elf.h>
 # include <linux/version.h>
+# if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+#  define elf_check_arch(x) ((x)->e_machine == EM_ALPHA)
+# endif
 # if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0)
 #  define aboot_elf_check_arch(e)        elf_check_arch(e)
 # else
@@ -62,8 +64,8 @@ main (int argc, char *argv[])
     struct exec * aout;		/* includes file & aout header */
     long offset;
 #ifdef __ELF__
-    struct elfhdr *elf;
-    struct elf_phdr *elf_phdr;	/* program header */
+    struct elf64_hdr *elf;
+    struct elf64_phdr *elf_phdr;	/* program header */
     unsigned long long e_entry;
 #endif
 
@@ -150,7 +152,7 @@ main (int argc, char *argv[])
     }
 
 #ifdef __ELF__
-    elf = (struct elfhdr *) buf;
+    elf = (struct elf64_hdr *) buf;
 
     if (elf->e_ident[0] == 0x7f && strncmp(elf->e_ident + 1, "ELF", 3) == 0) {
 	if (elf->e_type != ET_EXEC) {
@@ -177,7 +179,7 @@ main (int argc, char *argv[])
 	    exit(1);
 	}
 
-	elf_phdr = (struct elf_phdr *) buf;
+	elf_phdr = (struct elf64_phdr *) buf;
 	offset	 = elf_phdr->p_offset;
 	mem_size = elf_phdr->p_memsz;
 	fil_size = elf_phdr->p_filesz;
