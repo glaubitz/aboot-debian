@@ -1,13 +1,12 @@
 #ifndef boot_fs_h
 #define boot_fs_h
 
-#include <linux/types.h>
-#include <asm/stat.h>
+#include <sys/stat.h>
 
 struct bootfs {
 	int	fs_type;
 	int	blocksize;
-	
+
 	int	(*mount)(long dev, long partition_start, long quiet);
 
 	int	(*open)(const char *filename);

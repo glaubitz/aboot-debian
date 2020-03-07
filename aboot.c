@@ -19,14 +19,11 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include <linux/kernel.h>
-#include <linux/version.h>
 #include <asm/console.h>
 #include "hwrpb.h"
 #include "system.h"
 
 #include <elf.h>
-#include <alloca.h>
 #include <errno.h>
 
 #include "aboot.h"
@@ -34,9 +31,9 @@
 #include "cons.h"
 #include "setjmp.h"
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 
-struct bootfs *	bfs = 0;		/* filesystem to boot from */
+const struct bootfs *	bfs = 0;		/* filesystem to boot from */
 char *		dest_addr = 0;
 jmp_buf		jump_buffer;
 
@@ -65,39 +62,39 @@ unsigned long   page_shift  = 13;
 static unsigned long entry_addr = START_ADDR;
 
 /*
- * The decompression code calls this function after decompressing the
- * first block of the object file.  The first block must contain all
- * the relevant header information.
+ * Checks if content of buf contain a valid ELF header.
+ * Each ELF section is checked whether it can be loaded in
+ * memory.
  */
-long
-first_block (const char *buf, long blocksize)
+bool
+is_loadable_elf(const unsigned char *buf, long blocksize)
 {
 	Elf64_Ehdr *elf;
 	Elf64_Phdr *phdrs;
 	int i, j;
 
 	elf  = (Elf64_Ehdr *) buf;
-	
+
 	if (elf->e_ident[0] != 0x7f
 	    || elf->e_ident[1] != 'E'
 	    || elf->e_ident[2] != 'L'
 	    || elf->e_ident[3] != 'F')
 	{
 		/* Fail silently, it might be a compressed file */
-		return -1;
+		return false;
 	}
 	if (elf->e_ident[EI_CLASS] != ELFCLASS64
 	    || elf->e_ident[EI_DATA] != ELFDATA2LSB
 	    || elf->e_machine != EM_ALPHA)
 	{
 		printf("aboot: ELF executable not for this machine\n");
-		return -1;
+		return false;
 	}
 
 	/* Looks like an ELF binary. */
 	if (elf->e_type != ET_EXEC) {
 		printf("aboot: not an executable ELF file\n");
-		return -1;
+		return false;
 	}
 
 	if (elf->e_phoff + elf->e_phnum * sizeof(*phdrs) > (unsigned) blocksize)
@@ -105,10 +102,10 @@ first_block (const char *buf, long blocksize)
 		printf("aboot: "
 		       "ELF program headers not in first block (%ld)\n",
 		       (long) elf->e_phoff);
-		return -1;
+		return false;
 	}
 
-	phdrs = (struct elf_phdr *) (buf + elf->e_phoff);
+	phdrs = (Elf64_Phdr *) (buf + elf->e_phoff);
 	chunks = malloc(sizeof(struct segment) * elf->e_phnum);
 	start_addr = phdrs[0].p_vaddr; /* assume they are sorted */
 	entry_addr = elf->e_entry;
@@ -145,7 +142,7 @@ first_block (const char *buf, long blocksize)
 			       (status == -ENOMEM) ?
 			          "Not Found" :
 				  "Busy (Reserved)");
-			return -1;
+			return false;
 		}
 #endif
 
@@ -154,7 +151,7 @@ first_block (const char *buf, long blocksize)
 				printf("aboot: Can't load kernel.\n"
 				       "  Multiple BSS segments"
 				       " (PHDR %d)\n", i);
-				return -1;
+				return false;
 			}
 			bss_start = (char *) (phdrs[i].p_vaddr +
 				              phdrs[i].p_filesz);
@@ -168,14 +165,12 @@ first_block (const char *buf, long blocksize)
 	printf("aboot: bss at 0x%p, size %#lx\n", bss_start, bss_size);
 #endif
 
-	return 0;
+	return true;
 }
 
 static void
 get_boot_args(void)
 {
-	long result;
-
 	/* get boot command line: */
 #ifdef TESTING
 	const char *e;
@@ -192,6 +187,8 @@ get_boot_args(void)
 		strcpy(kernel_args, "i");
 	}
 #else
+	long result;
+
 	result = cons_getenv(ENV_BOOTED_FILE, boot_file, sizeof(boot_file));
 	if (result < 0) {
 		printf("aboot: warning: can't get ENV_BOOTED_FILE "
@@ -223,7 +220,6 @@ void unzip_error(char *x)
 
 int main()
 {
-	extern long load_kernel();
 	long result;
 
 	get_boot_args();
@@ -244,7 +240,6 @@ int main()
 void
 main_ (void)
 {
-	extern long load_kernel (void);
 	long i, result;
 
 	cons_init();

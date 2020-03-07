@@ -73,7 +73,7 @@ Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 =cut
 
-# $Id: docbook2man-de-spec.pl,v 1.1 2004/07/05 09:32:10 kreutzm-guest Exp $
+# $Id: docbook2man-de-spec.pl,v 1.1 2004/06/30 15:48:13 helgek Exp $
 
 use SGMLS;			# Use the SGMLS package.
 use SGMLS::Output;		# Use stack-based output.

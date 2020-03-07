@@ -2,6 +2,8 @@
 #define aboot_h
 
 #include <stdarg.h>
+#include <stdbool.h>
+#include <sys/types.h>
 
 #include "hwrpb.h"
 
@@ -15,7 +17,7 @@ extern struct segment {
 } *chunks;
 extern int nchunks;
 
-extern struct bootfs *	bfs;
+extern const struct bootfs *	bfs;
 extern char *		dest_addr;
 extern long		bytes_to_copy;
 extern long		text_offset;
@@ -33,15 +35,29 @@ extern unsigned long	initrd_start, initrd_size;
 /* page size is in the INIT_HWRPB */
 extern unsigned long	page_offset, page_shift;
 
-extern long		first_block (const char *buf, long blocksize);
-extern unsigned long	switch_to_osf_pal (unsigned long nr,
-					   struct pcb_struct *pcb_va,
-					   struct pcb_struct *pcb_pa,
-					   unsigned long vptb,
-					   unsigned long *kstk);
-extern int		uncompress_kernel (int fd);
-extern int		vsprintf (char *, const char *, va_list);
-extern void		run_kernel (unsigned long entry, unsigned long stack)
-			__attribute__((noreturn));
+/* From aboot.c */
+bool is_loadable_elf(const unsigned char *buf, long blocksize);
+
+/* From aboot.lds */
+extern char _end; /* The program break. The address where the program ends. */
+
+/* From disk.c */
+long load_kernel(void);
+
+/* From head.S */
+unsigned long switch_to_osf_pal(unsigned long nr,
+				struct pcb_struct *pcb_va,
+				struct pcb_struct *pcb_pa,
+				unsigned long vptb,
+				unsigned long *kstk);
+void run_kernel(unsigned long entry, unsigned long stack)
+     __attribute__((noreturn));
+
+/* From lib/vsprintf.c */
+int vsprintf(char *, const char *, va_list);
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
+
+/* From zip/misc.c */
+int uncompress_kernel(int fd);
 
 #endif /* aboot_h */

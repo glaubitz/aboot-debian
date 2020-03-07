@@ -2,18 +2,16 @@
  * inflate.c -- Not copyrighted 1992 by Mark Adler
  * version c10p1, 10 January 1993
  */
-/* 
+/*
  * Adapted for booting Linux by Hannu Savolainen 1993
- * based on gzip-1.0.3 
+ * based on gzip-1.0.3
  */
 
 #include "gzip.h"
 #define slide window
 
-#include <linux/types.h>
-
-extern void *malloc(size_t size);
-extern void free(void *ptr);
+void *malloc(size_t size);
+void free(void *ptr);
 
 #if 0
 #define DEBG(x)		{register long sp asm("30"); \
@@ -258,7 +256,7 @@ DEBG1("3 ");
         z = 1 << j;             /* table entries for j-bit table */
 
         /* allocate and link in new table */
-        q = (struct huft *)malloc((z + 1)*sizeof(struct huft));
+        q = malloc((z + 1)*sizeof(struct huft));
 DEBG1("4 ");
         hufts += z + 1;         /* track memory usage */
         *t = q + 1;             /* link to list for huft_free() */
@@ -341,7 +339,7 @@ struct huft *t;         /* table to free */
     q = (--p)->v.t;
     free(p);
     p = q;
-  } 
+  }
   return 0;
 }
 

@@ -1,6 +1,5 @@
-
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -54,14 +53,14 @@ int main(int argc, char **argv)
 	fprintf(tfd, "int %s[] = {\n", symname);
 
 	while((red=read(sfd, buf, 1024*sizeof(int)))) {
-		for (i=0; i<red/sizeof(int); i++) 
+		for (i=0; i<red/sizeof(int); i++)
 			fprintf(tfd, "0x%x, \n", buf[i]);
 	}
 
 	fprintf(tfd, "};");
 
 	fclose(tfd);
-	
+
 	return 0;
 
 }

@@ -26,7 +26,7 @@
 #include "aboot.h"
 #include "bootfs.h"
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 #include "netwrap.h"
 
 extern char boot_file[256];
@@ -37,7 +37,6 @@ dang (void)
 	printf("aboot: oops, unimplemented net-bfs function called!\n");
 }
 
-extern char _end;
 static char *src = 0;
 static char *kern_src=0, *ird_src=0;
 static int  header_size=0, kern_size=0, ird_size=0;
@@ -61,13 +60,15 @@ net_bread (int fd, long blkno, long nblks, char * buf)
 
 
 struct bootfs netfs = {
-	-1, 512,
-	(int (*)(long, long, long))	dang,	/* mount */
-	(int (*)(const char *))		dang,	/* open */
-	net_bread,				/* bread */
-	(void (*)(int fd))		dang,	/* close */
-	(const char* (*)(int, int))	dang,	/* readdir */
-	(int (*)(int, struct stat*))	dang,	/* fstat */
+	.fs_type = -1,
+	.blocksize = 512,
+
+	.mount   = (int (*)(long, long, long))	dang,
+	.open    = (int (*)(const char *))	dang,
+	.bread   = net_bread,
+	.close   = (void (*)(int fd))		dang,
+	.readdir = (const char* (*)(int, int))	dang,
+	.fstat   = (int (*)(int, struct stat*))	dang,
 };
 
 long

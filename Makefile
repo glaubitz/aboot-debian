@@ -30,23 +30,19 @@ export
 #
 # There shouldn't be any need to change anything below this line.
 #
-TOP 		= $(shell pwd)
 LOADADDR	= 20000000
 
-ifndef $($(CC))
-CC 		= gcc
-endif
+ABOOT_LDFLAGS = -static -N -Taboot.lds --relax
 
 ifeq ($(TESTING),)
-override CPPFLAGS	+= $(CFGDEFS) -I$(TOP)/include
-override CFLAGS		+= $(CPPFLAGS) -D__KERNEL__ -mcpu=ev4 -Os -Wall -fno-builtin -Wcast-align -mno-fp-regs -ffixed-8 -fno-builtin-printf
+override CPPFLAGS	+= $(CFGDEFS) -U_FORTIFY_SOURCE -Iinclude
+override CFLAGS		+= $(CPPFLAGS) -Os -Wall -ffreestanding -mno-fp-regs -msmall-data -msmall-text
 else
-override CPPFLAGS	+= -DTESTING $(CFGDEFS) -I$(TOP)/include
-override CFLAGS		+= $(CPPFLAGS) -O -g3 -Wall -D__KERNEL__ -ffixed-8
+override CPPFLAGS	+= -DTESTING $(CFGDEFS) -U_FORTIFY_SOURCE -Iinclude
+override CFLAGS		+= $(CPPFLAGS) -O -g3 -Wall
 endif
 
-ABOOT_LDFLAGS 	= -static -N -Taboot.lds
-override ASFLAGS		+= $(CPPFLAGS)
+override ASFLAGS	+= $(CPPFLAGS)
 
 
 .c.s:
@@ -56,9 +52,9 @@ override ASFLAGS		+= $(CPPFLAGS)
 .c.o:
 	$(CC) $(CFLAGS) -c -o $*.o $<
 .S.s:
-	$(CC) $(ASFLAGS) -D__ASSEMBLY__ -traditional -E -o $*.o $<
+	$(CC) $(ASFLAGS) -D__ASSEMBLY__ -E -o $*.o $<
 .S.o:
-	$(CC) $(ASFLAGS) -D__ASSEMBLY__ -traditional -c -o $*.o $<
+	$(CC) $(ASFLAGS) -D__ASSEMBLY__ -c -o $*.o $<
 
 NET_OBJS = net.o
 DISK_OBJS = disk.o fs/ext2.o fs/ufs.o fs/dummy.o fs/iso.o
@@ -87,8 +83,8 @@ bootloader.h: net_aboot.nh b2c
 	./b2c net_aboot.nh bootloader.h bootloader
 
 netabootwrap: netabootwrap.c bootloader.h
-	$(CC) $@.c $(CFLAGS) -o $@ 
-	
+	$(CC) $@.c $(CFLAGS) -o $@
+
 
 bootlx:	aboot tools/objstrip
 	tools/objstrip -vb aboot bootlx

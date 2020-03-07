@@ -88,7 +88,7 @@ struct el_common_EV5_uncorrectable_mcheck {
                                                      <4> Tag error in bank 0
                                                      <5> Tag error in bank 1 */
         unsigned long   va;               /* Effective VA of fault or miss. */
-        unsigned long   mm_stat;          /* Holds the reason for D-stream 
+        unsigned long   mm_stat;          /* Holds the reason for D-stream
                                              fault or D-cache parity errors */
         unsigned long   sc_addr;          /* Address that was being accessed
                                              when EV5 detected Secondary cache
@@ -99,7 +99,7 @@ struct el_common_EV5_uncorrectable_mcheck {
         unsigned long   ei_addr;          /* Physical address of any transfer
                                              that is logged in EV5 EI_STAT */
         unsigned long   fill_syndrome;    /* For correcting ECC errors.     */
-        unsigned long   ei_stat;          /* Helps identify reason of any 
+        unsigned long   ei_stat;          /* Helps identify reason of any
                                              processor uncorrectable error
                                              at its external interface.     */
         unsigned long   ld_lock;          /* Contents of EV5 LD_LOCK register*/
@@ -129,7 +129,7 @@ struct el_common_EV6_mcheck {
 	unsigned long PCTX;
 };
 
-extern void halt(void) __attribute__((noreturn));
+void halt(void) __attribute__((noreturn));
 #define __halt() __asm__ __volatile__ ("call_pal %0 #halt" : : "i" (PAL_halt))
 
 #define switch_to(P,N,L)						 \
@@ -139,7 +139,7 @@ extern void halt(void) __attribute__((noreturn));
   } while (0)
 
 struct task_struct;
-extern struct task_struct *alpha_switch_to(unsigned long, struct task_struct*);
+struct task_struct *alpha_switch_to(unsigned long, struct task_struct *);
 
 /*
  * On SMP systems, when the scheduler does migration-cost autodetection,

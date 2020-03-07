@@ -1,18 +1,14 @@
-ifndef ($(CC))
-CC		= gcc
-endif
-
-override CPPFLAGS += -D__KERNEL__ -I../include
-override ASFLAGS += $(CPPFLAGS) -D__ASSEMBLY__ -traditional
+override CPPFLAGS += -U_FORTIFY_SOURCE -I../include
+override ASFLAGS += $(CPPFLAGS) -D__ASSEMBLY__
 
 ifeq ($(TESTING),)
 ifeq ($(FOREIGN),"yes")
-override CFLAGS	+= -Os -Wall -fno-builtin
+override CFLAGS	+= -Os -Wall -ffreestanding
 else
-override CFLAGS	+= -Os -Wall -mno-fp-regs -fno-builtin
+override CFLAGS += -Os -Wall -mno-fp-regs -ffreestanding
 endif
 else
-override CFLAGS	+= -Os -g3 -Wall
+override CFLAGS += -Os -g3 -Wall
 endif
 
 ifeq ($(TESTING),)

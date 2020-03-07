@@ -1,9 +1,5 @@
-ifndef ($(CC))
-CC	= gcc
-endif
-override CFLAGS		+= -g -O2 -Wall -I. -I../include $(CPPFLAGS)
-#override LDFLAGS	+= -g
-override PGMS		+= e2writeboot isomarkboot abootconf elfencap objstrip
+override CFLAGS += -g -O2 -Wall -I. -I../include $(CPPFLAGS)
+override PGMS += e2writeboot isomarkboot abootconf elfencap objstrip
 
 EXEC_PREFIX = /usr
 
