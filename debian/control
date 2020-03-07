@@ -4,7 +4,8 @@ Section: admin
 Priority: standard
 Maintainer: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
 Standards-Version: 3.9.3
-Vcs-Bzr: http://bzr.debian.org/bzr/pkg-aboot/aboot/branches/debian/
+Vcs-Browser: https://salsa.debian.org/debian/aboot
+Vcs-Git: https://salsa.debian.org/debian/aboot.git
 
 Package: aboot
 Architecture: alpha
