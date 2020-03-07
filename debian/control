@@ -1,5 +1,5 @@
 Source: aboot
-Build-Depends: debhelper (>= 9), sp, sgmlspl, docbook-utils
+Build-Depends: debhelper (>= 9), sp, sgmlspl, docbook-utils, libext2fs-dev [alpha]
 Build-Depends-Indep: sgmltools-lite
 Section: admin
 Priority: standard
