@@ -3,7 +3,7 @@ Build-Depends: debhelper (>= 9), sp, sgmlspl, docbook-utils
 Build-Depends-Indep: sgmltools-lite
 Section: admin
 Priority: standard
-Maintainer: Steve Langasek <vorlon@debian.org>
+Maintainer: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
 Standards-Version: 3.9.3
 Vcs-Bzr: http://bzr.debian.org/bzr/pkg-aboot/aboot/branches/debian/
 
