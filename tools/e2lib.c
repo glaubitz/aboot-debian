@@ -16,11 +16,12 @@
 
 #include <bio.h>
 #include <e2lib.h>
+#include <ext2fs/ext2_fs.h>
 
 
-#define		MAX_OPEN_FILES		8 
+#define		MAX_OPEN_FILES		8
 
-int				fd = -1; 
+int				fd = -1;
 struct ext2_super_block		sb;
 struct ext2_group_desc		*gds;
 int				ngroups = 0;
@@ -32,7 +33,6 @@ int				ptrs_per_blk;	/* ptrs/indirect block */
 char				filename[256];
 int				readonly;	/* Is this FS read-only? */
 int				verbose = 0;
-int				big_endian = 0;
 
 static void	ext2_ifree(int ino);
 static void	ext2_free_indirect(int indirect_blkno, int level);
@@ -45,93 +45,8 @@ struct inode_table_entry {
 	unsigned short		old_mode;
 } inode_table[MAX_OPEN_FILES];
 
-/* Utility functions to byte-swap 16 and 32 bit quantities... */
-
-unsigned short
-swap16 (unsigned short s)
-{
-    return((unsigned short)( ((s << 8) & 0xff00) | ((s >> 8) & 0x00ff)));
-}
-
-unsigned int
-swap32 (unsigned int i)
-{
-    return((unsigned int)(
-                ((i << 24) & 0xff000000) |
-                ((i << 8) & 0x00ff0000) |
-                ((i >> 8) & 0x0000ff00) |
-                ((i >> 24) & 0x000000ff)) );
-}
-
-void
-ext2_swap_sb (struct ext2_super_block *sb)
-{
-    sb->s_inodes_count = swap32(sb->s_inodes_count);
-    sb->s_blocks_count = swap32(sb->s_blocks_count);
-    sb->s_r_blocks_count = swap32(sb->s_r_blocks_count);
-    sb->s_free_blocks_count = swap32(sb->s_free_blocks_count);
-    sb->s_free_inodes_count = swap32(sb->s_free_inodes_count);
-    sb->s_first_data_block = swap32(sb->s_first_data_block);
-    sb->s_log_block_size = swap32(sb->s_log_block_size);
-    sb->s_log_frag_size = swap32(sb->s_log_frag_size);
-    sb->s_blocks_per_group = swap32(sb->s_blocks_per_group);
-    sb->s_frags_per_group = swap32(sb->s_frags_per_group);
-    sb->s_inodes_per_group = swap32(sb->s_inodes_per_group);
-    sb->s_mtime = swap32(sb->s_mtime);
-    sb->s_wtime = swap32(sb->s_wtime);
-    sb->s_mnt_count = swap16(sb->s_mnt_count);
-    sb->s_max_mnt_count = swap16(sb->s_max_mnt_count);
-    sb->s_magic = swap16(sb->s_magic);
-    sb->s_state = swap16(sb->s_state);
-    sb->s_errors = swap16(sb->s_errors);
-    sb->s_pad = swap16(sb->s_pad);
-    sb->s_lastcheck = swap32(sb->s_lastcheck);
-    sb->s_checkinterval = swap32(sb->s_checkinterval);
-}
-
-void
-ext2_swap_gd (struct ext2_group_desc *gd)
-{
-	gd->bg_block_bitmap = swap32(gd->bg_block_bitmap);
-	gd->bg_inode_bitmap = swap32(gd->bg_inode_bitmap);
-	gd->bg_inode_table = swap32(gd->bg_inode_table);
-	gd->bg_free_blocks_count = swap16(gd->bg_free_blocks_count);
-	gd->bg_free_inodes_count = swap16(gd->bg_free_inodes_count);
-	gd->bg_used_dirs_count = swap16(gd->bg_used_dirs_count);
-	gd->bg_pad = swap16(gd->bg_pad);
-}
-
-void
-ext2_swap_inode (struct ext2_inode *ip)
-{
-    int		i;
-
-    ip->i_mode = swap16(ip->i_mode);
-    ip->i_uid = swap16(ip->i_uid);
-    ip->i_size = swap32(ip->i_size);
-    ip->i_atime = swap32(ip->i_atime);
-    ip->i_ctime = swap32(ip->i_ctime);
-    ip->i_mtime = swap32(ip->i_mtime);
-    ip->i_dtime = swap32(ip->i_dtime);
-    ip->i_gid = swap16(ip->i_gid);
-    ip->i_links_count = swap16(ip->i_links_count);
-    ip->i_blocks = swap32(ip->i_blocks);
-    ip->i_flags = swap32(ip->i_flags);
-    ip->i_reserved1 = swap32(ip->i_reserved1);
-    for(i = 0; i < EXT2_N_BLOCKS; i++) {
-	ip->i_block[i] = swap32(ip->i_block[i]);
-    }
-    ip->i_version = swap32(ip->i_version);
-    ip->i_file_acl = swap32(ip->i_file_acl);
-    ip->i_dir_acl = swap32(ip->i_dir_acl);
-    ip->i_faddr = swap32(ip->i_faddr);
-    ip->i_pad1 = swap16(ip->i_pad1);
-}
-
-
-
 /* Initialize an ext2 filesystem; this is sort-of the same idea as
- * "mounting" it.  Read in the relevant control structures and 
+ * "mounting" it.  Read in the relevant control structures and
  * make them available to the user.  Returns 0 if successful, -1 on
  * failure.
  */
@@ -147,7 +62,7 @@ ext2_init (char * name, int access)
     }
 
     if((access != O_RDONLY) && (access != O_RDWR)) {
-	fprintf(stderr, 
+	fprintf(stderr,
 		"ext2_init: Access must be O_RDONLY or O_RDWR, not %d\n",
 		access);
 	return(-1);
@@ -172,29 +87,21 @@ ext2_init (char * name, int access)
 	return(-1);
     }
 
-    if((sb.s_magic != EXT2_SUPER_MAGIC) && (sb.s_magic != EXT2_SUPER_BIGMAGIC)) {
+    if(sb.s_magic != EXT2_SUPER_MAGIC) {
 	fprintf(stderr, "ext2 bad magic 0x%x\n", sb.s_magic);
 	close(fd);
 	return(-1);
     }
 
-    if(sb.s_magic == EXT2_SUPER_BIGMAGIC) {
-	big_endian = 1;
-
-	/* Byte-swap the fields in the superblock... */
-	ext2_swap_sb(&sb);
-    }
-
     if(sb.s_first_data_block != 1) {
-	fprintf(stderr, 
+	fprintf(stderr,
 	    "Brain-damaged utils can't deal with a filesystem\nwhere s_first_data_block != 1.\nRe-initialize the filesystem\n");
 	close(fd);
 	return(-1);
     }
 
     ngroups = (sb.s_blocks_count+sb.s_blocks_per_group-1)/sb.s_blocks_per_group;
-    gds = (struct ext2_group_desc *)
-	      malloc((size_t)(ngroups * sizeof(struct ext2_group_desc)));
+    gds = malloc((size_t)(ngroups * sizeof(struct ext2_group_desc)));
 
     /* Read in the group descriptors (immediately follows superblock) */
     if ((size_t) read(fd, gds, ngroups * sizeof(struct ext2_group_desc))
@@ -202,12 +109,6 @@ ext2_init (char * name, int access)
     {
 	perror("ext2_init: group desc read error");
 	return(-1);
-    }
-
-    if(big_endian) {
-	for(i = 0; i < ngroups; i++) {
-	    ext2_swap_gd(&(gds[i]));
-	}
     }
 
     strcpy(filename, name);
@@ -229,13 +130,13 @@ ext2_init (char * name, int access)
 
     if(verbose) {
 	printf("Initialized filesystem %s\n", filename);
-	printf("  %d blocks (%dKb), %d free (%dKb)\n", 
+	printf("  %d blocks (%dKb), %d free (%dKb)\n",
 		sb.s_blocks_count, (sb.s_blocks_count * blocksize)/1024,
-		sb.s_free_blocks_count, 
+		sb.s_free_blocks_count,
 		(sb.s_free_blocks_count * blocksize)/1024);
-	printf("  %d inodes,  %d free\n", 
+	printf("  %d inodes,  %d free\n",
 		sb.s_inodes_count, sb.s_free_inodes_count);
-	printf("  %d groups, %d blocks/group\n", 
+	printf("  %d groups, %d blocks/group\n",
 			ngroups, sb.s_blocks_per_group);
     }
 
@@ -246,30 +147,6 @@ int
 ext2_blocksize (void)
 {
     return blocksize;
-}
-
-int
-ext2_total_blocks (void)
-{
-    return sb.s_blocks_count;
-}
-
-int
-ext2_free_blocks (void)
-{
-    return sb.s_free_blocks_count;
-}
-
-int
-ext2_total_inodes (void)
-{
-    return sb.s_inodes_count;
-}
-
-int
-ext2_free_inodes (void)
-{
-    return sb.s_free_inodes_count;
 }
 
 /* Call this when we're all done with the file system.  This will write
@@ -283,14 +160,6 @@ ext2_close (void)
     int		blocks_per_group = sb.s_blocks_per_group;
 
     if(!readonly) {
-
-	if(big_endian) {
-	    ext2_swap_sb(&sb);
-	    for(i = 0; i < ngroups; i++) {
-		ext2_swap_gd(&(gds[i]));
-	    }
-	}
-
 	for(i = 0; i < ngroups; i++) {
 	    lseek(fd, ((i*blocks_per_group)+1)*blocksize, SEEK_SET);
 	    if(write(fd, &sb, sizeof(sb)) != sizeof(sb)) {
@@ -316,7 +185,7 @@ ext2_close (void)
     }
 }
 
-	
+
 
 /* Read the specified inode from the disk and return it to the user.
  * Returns NULL if the inode can't be read...
@@ -352,10 +221,6 @@ ext2_iget (int ino)
     bread(blkoffset/blocksize, inobuf);
 
     memcpy(ip, &(inobuf[byteoffset]), sizeof(struct ext2_inode));
-
-    if(big_endian) {
-	ext2_swap_inode(ip);
-    }
 
     /* Yes, this is ugly, but it makes iput SOOO much easier 8-) */
     itp->free = 0;
@@ -395,9 +260,6 @@ ext2_iput (struct ext2_inode *ip)
 
 	inode_mode = ip->i_mode;
 	bread(blkoffset/blocksize, inobuf);
-	if(big_endian) {
-	    ext2_swap_inode(ip);
-	}
 	memcpy(&(inobuf[byteoffset]), ip, sizeof(struct ext2_inode));
 	bwrite(blkoffset/blocksize, inobuf);
 
@@ -432,7 +294,7 @@ find_first_zero_bit (unsigned int * addr, unsigned size)
 	lwsize = (size + BITS_PER_LONG - 1) >> 5;
 	for (longword = 0; longword < lwsize; longword++, ap++) {
 	    if(*ap != 0xffffffff) {
-		lwval = big_endian ? swap32(*ap) : *ap;
+		lwval = *ap;
 
 		for (bit = 0, mask = 1; bit < BITS_PER_LONG; bit++, mask <<= 1)
 		{
@@ -449,30 +311,14 @@ find_first_zero_bit (unsigned int * addr, unsigned size)
 static void
 set_bit (unsigned int *addr, int bitno)
 {
-    if(big_endian) {
-	int	lwval;
-	lwval = swap32(addr[bitno/BITS_PER_LONG]);
-	lwval |= (1 << (bitno % BITS_PER_LONG));
-	addr[bitno/BITS_PER_LONG] = swap32(lwval);
-    }
-    else {
-        addr[bitno / BITS_PER_LONG] |= (1 << (bitno % BITS_PER_LONG));
-    }
+    addr[bitno / BITS_PER_LONG] |= (1 << (bitno % BITS_PER_LONG));
 }
 
 static void
 clear_bit (unsigned int *addr, int bitno)
 {
-    if(big_endian) {
-	int	lwval;
-	lwval = swap32(addr[bitno/BITS_PER_LONG]);
-	lwval &= ~((unsigned int)(1 << (bitno % BITS_PER_LONG)));
-	addr[bitno/BITS_PER_LONG] = swap32(lwval);
-    }
-    else {
-        addr[bitno / BITS_PER_LONG] &= 
-			~((unsigned int)(1 << (bitno % BITS_PER_LONG)));
-    }
+    addr[bitno / BITS_PER_LONG] &=
+	~((unsigned int)(1 << (bitno % BITS_PER_LONG)));
 }
 
 
@@ -496,7 +342,7 @@ ext2_balloc (void)
 	    bread(gds[i].bg_block_bitmap, blockmap);
 	    blk = find_first_zero_bit(blockmap, sb.s_blocks_per_group);
 	    if (blk == 0 || blk == sb.s_blocks_per_group) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			"group %d has %d blocks free but none in bitmap?\n",
 			i, gds[i].bg_free_blocks_count);
 		continue;
@@ -591,7 +437,7 @@ ext2_contiguous_balloc (int nblocks)
 		    break;
 	        }
 
-	        for(lastlong = firstlong; lastlong < longs_per_group; 
+	        for(lastlong = firstlong; lastlong < longs_per_group;
 							lastlong++) {
 		    if(blockmap[lastlong] != 0) break;
 	        }
@@ -601,7 +447,7 @@ ext2_contiguous_balloc (int nblocks)
 		}
 	    } while((lastlong-firstlong) < longs_needed);
 
-	    /* If we got all the way through the block map, 
+	    /* If we got all the way through the block map,
 	     * try another group.
 	     */
 	    if(firstlong == longs_per_group) {
@@ -616,7 +462,7 @@ ext2_contiguous_balloc (int nblocks)
 	    for(j = 0; j < nblocks; j++) {
 		set_bit(blockmap, blk+j);
 	    }
-	  
+
 	    bwrite(gds[i].bg_block_bitmap, blockmap);
 	    gds[i].bg_free_blocks_count -= nblocks;
 	    sb.s_free_blocks_count -= nblocks;
@@ -635,12 +481,12 @@ ext2_contiguous_balloc (int nblocks)
     }
     return(0);
 }
-    
 
-/* Pre-allocate contiguous blocks to the specified inode.  Note that the 
+
+/* Pre-allocate contiguous blocks to the specified inode.  Note that the
  * DATA blocks must be contiguous; indirect blocks can come from anywhere.
  * This is for the benefit of the bootstrap loader.
- * If successful, this routine returns the block number of the first 
+ * If successful, this routine returns the block number of the first
  * data block of the file.  Otherwise, it returns -1.
  */
 int
@@ -656,7 +502,7 @@ ext2_fill_contiguous (struct ext2_inode * ip, int nblocks)
      * here.  We shouldn't need more than this anyway!
      */
     if(nblocks > ind1lim) {
-	fprintf(stderr, 
+	fprintf(stderr,
 	  "ext2_fill_contiguous: file size too big (%d); cannot exceed %d\n",
 	  nblocks, ind1lim);
 	return(-1);
@@ -666,7 +512,7 @@ ext2_fill_contiguous (struct ext2_inode * ip, int nblocks)
     firstblock = ext2_contiguous_balloc(nblocks);
 
     if(firstblock == 0) {
-	fprintf(stderr, 
+	fprintf(stderr,
           "ext2_fill_contiguous: Cannot allocate %d contiguous blocks\n", nblocks);
 	return(-1);
     }
@@ -704,7 +550,7 @@ ext2_fill_contiguous (struct ext2_inode * ip, int nblocks)
 	    ip->i_block[i] = firstblock+i;
 	}
 	else {
-	    *lp++ = big_endian ? swap32(firstblock+i) : firstblock+i;
+	    *lp++ = firstblock+i;
 	}
     }
 
@@ -746,7 +592,7 @@ ext2_ialloc (void)
 
 	    ino = find_first_zero_bit(inodemap, sb.s_inodes_per_group);
 	    if (ino == 0 || (unsigned) ino == sb.s_inodes_per_group) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			"group %d has %d inodes free but none in bitmap?\n",
 			i, gds[i].bg_free_inodes_count);
 		continue;
@@ -848,22 +694,11 @@ ext2_blkno (struct ext2_inode *ip, int blkoff, int allocate)
 
 	/* Read the indirect block */
 	bread(iblkno, blkbuf);
-	
-	if(big_endian) {
-	    blkno = swap32(lp[blkoff-(directlim+1)]);
-	}
-	else {
-	    blkno = lp[blkoff-(directlim+1)];
-	}
+
+	blkno = lp[blkoff-(directlim+1)];
 	if((blkno == 0) && allocate) {
 	    /* No block allocated but we need one. */
-	    if(big_endian) {
-		blkno = ext2_balloc();
-		lp[blkoff-(directlim+1)] = swap32(blkno);
-	    }
-	    else {
-	        blkno = lp[blkoff-(directlim+1)] = ext2_balloc();
-	    }
+	    blkno = lp[blkoff-(directlim+1)] = ext2_balloc();
 	    if(blkno == 0) {
 		return(0);
 	    }
@@ -906,9 +741,6 @@ ext2_blkno (struct ext2_inode *ip, int blkoff, int allocate)
 
 	/* Find the single-indirect block pointer ... */
 	iblkno = lp[(blkoff - (ind1lim+1)) / ptrs_per_blk];
-	if(big_endian) {
-		iblkno = swap32(iblkno);
-	}
 
 	if((iblkno == 0) && allocate) {
 	    /* No indirect block and we need one, so we allocate
@@ -922,7 +754,7 @@ ext2_blkno (struct ext2_inode *ip, int blkoff, int allocate)
 	    if(verbose) {
 		printf("Allocated single-indirect block %d\n", iblkno);
 	    }
-	    lp[(blkoff-(ind1lim+1)) / ptrs_per_blk] = big_endian ? swap32(iblkno) :  iblkno;
+	    lp[(blkoff-(ind1lim+1)) / ptrs_per_blk] = iblkno;
 	    bwrite(diblkno, blkbuf);
 
 	    memset(blkbuf, 0, blocksize);
@@ -932,25 +764,16 @@ ext2_blkno (struct ext2_inode *ip, int blkoff, int allocate)
 	if(iblkno == 0) {
 	    return(0);
 	}
-	    
+
 
 	/* Read the indirect block */
 	bread(iblkno, blkbuf);
-	
+
 	/* Find the block itself. */
 	blkno = lp[(blkoff-(ind1lim+1)) % ptrs_per_blk];
-	if(big_endian) {
-		blkno = swap32(blkno);
-	}
 	if((blkno == 0) && allocate) {
 	    /* No block allocated but we need one. */
-	    if(big_endian) {
-		blkno = ext2_balloc();
-		lp[(blkoff-(ind1lim+1)) % ptrs_per_blk] = swap32(blkno);
-	    }
-	    else {
-	        blkno = lp[(blkoff-(ind1lim+1)) % ptrs_per_blk] = ext2_balloc();
-	    }
+	    blkno = lp[(blkoff-(ind1lim+1)) % ptrs_per_blk] = ext2_balloc();
 	    ip->i_blocks += (blocksize / 512);
 	    if(verbose) {
 		printf("Allocated data block %d\n", blkno);
@@ -1008,82 +831,6 @@ ext2_bwrite (struct ext2_inode *ip, int blkno, char * buffer)
     }
 }
 
-/* More convenient forms of ext2_bread/ext2_bwrite.  These allow arbitrary
- * data alignment and buffer sizes...
- */
-int
-ext2_seek_and_read (struct ext2_inode *ip, int offset, char *buffer, int count)
-{
-    int		blkno;
-    int		blkoffset;
-    int		bytesleft;
-    int		nread;
-    int		iosize;
-    char	*bufptr;
-    char	blkbuf[EXT2_MAX_BLOCK_SIZE];
-
-    bufptr = buffer;
-    bytesleft = count;
-    nread = 0;
-    blkno = offset / blocksize;
-    blkoffset = offset % blocksize;
-
-    while(bytesleft > 0) {
-	iosize = ((blocksize-blkoffset) > bytesleft) ? 
-				bytesleft : (blocksize-blkoffset);
-	if((blkoffset == 0) && (iosize == blocksize)) {
-	    ext2_bread(ip, blkno, bufptr);
-	}
-	else {
-	    ext2_bread(ip, blkno, blkbuf);
-	    memcpy(bufptr, blkbuf+blkoffset, iosize);
-	}
-   	bytesleft -= iosize;
-	bufptr += iosize;
-	nread += iosize;
-	blkno++;
-	blkoffset = 0;
-    }
-    return(nread);
-}
-
-int
-ext2_seek_and_write (struct ext2_inode *ip, int offset, char *buffer, int count)
-{
-    int		blkno;
-    int		blkoffset;
-    int		bytesleft;
-    int		nwritten;
-    int		iosize;
-    char	*bufptr;
-    char	blkbuf[EXT2_MAX_BLOCK_SIZE];
-
-    bufptr = buffer;
-    bytesleft = count;
-    nwritten = 0;
-    blkno = offset / blocksize;
-    blkoffset = offset % blocksize;
-
-    while(bytesleft > 0) {
-	iosize = ((blocksize-blkoffset) > bytesleft) ? 
-				bytesleft : (blocksize-blkoffset);
-	if((blkoffset == 0) && (iosize == blocksize)) {
-	    ext2_bwrite(ip, blkno, bufptr);
-	}
-	else {
-	    ext2_bread(ip, blkno, blkbuf);
-	    memcpy(blkbuf+blkoffset, bufptr, iosize);
-	    ext2_bwrite(ip, blkno, blkbuf);
-	}
-   	bytesleft -= iosize;
-	bufptr += iosize;
-	nwritten += iosize;
-	blkno++;
-	blkoffset = 0;
-    }
-    return(nwritten);
-}
-
 struct ext2_inode *
 ext2_namei (char *name)
 {
@@ -1120,15 +867,15 @@ ext2_namei (char *name)
 		int namelen;
 
 	        dp = (struct ext2_dir_entry *)(dirbuf+blockoffset);
-		namelen = big_endian ? swap16(dp->name_len) : dp->name_len;
+		namelen = dp->name_len;
 		if((namelen == component_length) &&
 		   (strncmp(component, dp->name, component_length) == 0)) {
 			/* Found it! */
-			next_ino = big_endian ? swap32(dp->inode) : dp->inode;
+			next_ino = dp->inode;
 			break;
 		}
 		/* Go to next entry in this block */
-		blockoffset += (big_endian ? swap16(dp->rec_len) : dp->rec_len);
+		blockoffset += dp->rec_len;
 	    }
 	    if(next_ino >= 0) {
 		break;
@@ -1156,7 +903,7 @@ ext2_namei (char *name)
 	 * component string...
 	 */
 	dir_inode = ext2_iget(next_ino);
-	
+
 	component = strtok(NULL, "/");
     }
 
@@ -1167,7 +914,7 @@ ext2_namei (char *name)
 }
 
 /* Create a new entry in the specified directory with the specified
- * name/inumber pair.  This routine ASSUMES that the specified 
+ * name/inumber pair.  This routine ASSUMES that the specified
  * entry does not already exist!  Therefore, we MUST use namei
  * first to try and find the entry...
  */
@@ -1195,9 +942,9 @@ ext2_mknod (struct ext2_inode *dip, char * name, int ino)
 	while(blockoffset < blocksize) {
 
 	    dp = (struct ext2_dir_entry *)(dirbuf+blockoffset);
-	    dp_inode = big_endian ? swap32(dp->inode) : dp->inode;
-	    dp_reclen = big_endian ? swap16(dp->rec_len) : dp->rec_len;
-	    dp_namelen = big_endian ? swap16(dp->name_len) : dp->name_len;
+	    dp_inode = dp->inode;
+	    dp_reclen = dp->rec_len;
+	    dp_namelen = dp->name_len;
 
 	    if((dp_inode == 0) && (dp_reclen >= EXT2_DIR_REC_LEN(namelen))) {
 		/* Found an *empty* entry that can hold this name. */
@@ -1208,26 +955,21 @@ ext2_mknod (struct ext2_inode *dip, char * name, int ino)
 	    /* If this entry is in use, see if it has space at the end
 	     * to hold the new entry anyway...
 	     */
-	    if((dp_inode != 0) && 
-		((dp_reclen - EXT2_DIR_REC_LEN(dp_namelen)) 
+	    if((dp_inode != 0) &&
+		((dp_reclen - EXT2_DIR_REC_LEN(dp_namelen))
 					>= EXT2_DIR_REC_LEN(namelen))) {
 
 		new_reclen = dp_reclen - EXT2_DIR_REC_LEN(dp_namelen);
 
 		/* Chop the in-use entry down to size */
-		if(big_endian) {
-		    dp_reclen = EXT2_DIR_REC_LEN(swap16(dp->name_len));
-		}
-		else {
-		    dp_reclen = EXT2_DIR_REC_LEN(dp->name_len);
-		}
-		dp->rec_len = big_endian ? swap16(dp_reclen) : dp_reclen;
-		
+		dp_reclen = EXT2_DIR_REC_LEN(dp->name_len);
+		dp->rec_len = dp_reclen;
+
 		/* Point entry_dp to the end of this entry */
 		entry_dp = (struct ext2_dir_entry *)((char*)dp + dp_reclen);
 
 		/* Set the record length for this entry */
-		entry_dp->rec_len = big_endian ? swap16(new_reclen) : new_reclen;
+		entry_dp->rec_len = new_reclen;
 
 		/* all set! */
 		break;
@@ -1248,7 +990,7 @@ ext2_mknod (struct ext2_inode *dip, char * name, int ino)
 
     /* By the time we get here, one of two things has happened:
      *
-     *	If entry_dp is non-NULL, then entry_dp points to the 
+     *	If entry_dp is non-NULL, then entry_dp points to the
      *  place in dirbuf where the entry lives, and diroffset
      *  is the directory offset of the beginning of dirbuf.
      *
@@ -1257,135 +999,21 @@ ext2_mknod (struct ext2_inode *dip, char * name, int ino)
      *  this entry...
      */
     if(entry_dp) {
-	entry_dp->inode = big_endian ? swap32(ino) : ino;
-	entry_dp->name_len = big_endian ? swap16(namelen) : namelen;
+	entry_dp->inode = ino;
+	entry_dp->name_len = namelen;
 	strncpy(entry_dp->name, name, namelen);
 	ext2_bwrite(dip, diroffset/blocksize, dirbuf);
     }
     else {
 	entry_dp = (struct ext2_dir_entry *)dirbuf;
-	entry_dp->inode = big_endian ? swap32(ino) : ino;
-	entry_dp->name_len = big_endian ? swap16(namelen) : namelen;
+	entry_dp->inode = ino;
+	entry_dp->name_len = namelen;
 	strncpy(entry_dp->name, name, namelen);
-	entry_dp->rec_len = big_endian ? swap16(blocksize) : blocksize;
+	entry_dp->rec_len = blocksize;
 	ext2_bwrite(dip, dip->i_size/blocksize, dirbuf);
 	dip->i_size += blocksize;
     }
 }
-
-/* This is a close cousin to namei, only it *removes* the entry
- * in addition to finding it.  This routine assumes that the specified
- * entry has already been found...
- */
-void
-ext2_remove_entry (char *name)
-{
-    char 	namebuf[256];
-    char 	dirbuf[EXT2_MAX_BLOCK_SIZE];
-    char *	component;
-    struct ext2_inode *		dir_inode;
-    struct ext2_dir_entry *dp;
-    int		next_ino;
-    int		dp_inode, dp_reclen, dp_namelen;
-
-    /* Squirrel away a copy of "namebuf" that we can molest */
-    strcpy(namebuf, name);
-
-    /* Start at the root... */
-    dir_inode = ext2_iget(EXT2_ROOT_INO);
-
-    component = strtok(namebuf, "/");
-    while(component) {
-	unsigned diroffset;
-	int blockoffset, component_length;
-	char *next_component;
-	struct ext2_dir_entry * pdp;
-
-	/* Search for the specified component in the current directory
-	 * inode.
-	 */
-
-	next_component = NULL;
-	pdp = NULL;
-	next_ino = -1;
-
-	component_length = strlen(component);
-	diroffset = 0;
-	while (diroffset < dir_inode->i_size) {
-	    blockoffset = 0;
-	    ext2_bread(dir_inode, diroffset / blocksize, dirbuf);
-	    while(blockoffset < blocksize) {
-	        dp = (struct ext2_dir_entry *)(dirbuf+blockoffset);
-		dp_inode = big_endian ? swap32(dp->inode) : dp->inode;
-		dp_reclen = big_endian ? swap16(dp->rec_len) : dp->rec_len;
-		dp_namelen = big_endian ? swap16(dp->name_len) : dp->name_len;
-
-		if((dp_namelen == component_length) &&
-		   (strncmp(component, dp->name, component_length) == 0)) {
-			/* Found it! */
-			next_component = strtok(NULL, "/");
-			if(next_component == NULL) {
-			    /* We've found the entry that needs to be
-			     * zapped.  If it's at the beginning of the
-			     * block, then zap it.  Otherwise, coalesce
-			     * it with the previous entry.
-			     */
-			    if(pdp) {
-				if(big_endian) {
-				    pdp->rec_len = 
-					swap16(swap16(pdp->rec_len)+dp_reclen);
-				}
-				else {
-				    pdp->rec_len += dp_reclen;
-				}
-			    }
-			    else {
-				dp->inode = 0;
-				dp->name_len = 0;
-			    }
-	    		    ext2_bwrite(dir_inode, diroffset / blocksize, dirbuf);
-			    return;
-			}
-			next_ino = dp_inode;
-			break;
-		}
-		/* Go to next entry in this block */
-		pdp = dp;
-		blockoffset += dp_reclen;
-	    }
-	    if(next_ino >= 0) {
-		break;
-	    }
-
-	    /* If we got here, then we didn't find the component.
-	     * Try the next block in this directory...
-	     */
-	    diroffset += blocksize;
-	}
-
-	/* At this point, we're done with this directory whether
-	 * we've succeeded or failed...
-	 */
-	ext2_iput(dir_inode);
-
-	/* If next_ino is negative, then we've failed (gone all the
-	 * way through without finding anything)
-	 */
-	if(next_ino < 0) {
-	    return;
-	}
-
-	/* Otherwise, we can get this inode and find the next
-	 * component string...
-	 */
-	dir_inode = ext2_iget(next_ino);
-	
-	component = next_component;
-    }
-
-    ext2_iput(dir_inode);
-}
-
 
 void
 ext2_truncate (struct ext2_inode *ip)
@@ -1438,36 +1066,17 @@ ext2_free_indirect (int indirect_blkno, int level)
 	if(level == 0) {
 	    /* These are pointers to data blocks; just free them up */
 	    if(indirect_block[i]) {
-		if(big_endian) {
-	            ext2_bfree(swap32(indirect_block[i]));
-		}
-		else {
-	            ext2_bfree(indirect_block[i]);
-		}
+	        ext2_bfree(indirect_block[i]);
 	        indirect_block[i] = 0;
 	    }
 	}
 	else {
 	    /* These are pointers to *indirect* blocks.  Go down the chain */
 	    if(indirect_block[i]) {
-		if(big_endian) {
-		    ext2_free_indirect(swap32(indirect_block[i]), level-1);
-		}
-		else {
-		    ext2_free_indirect(indirect_block[i], level-1);
-		}
+		ext2_free_indirect(indirect_block[i], level-1);
 		indirect_block[i] = 0;
 	    }
 	}
     }
     ext2_bfree(indirect_blkno);
-}
-
-int
-ext2_get_inumber (struct ext2_inode *ip)
-{
-    struct inode_table_entry *itp;
-
-    itp = (struct inode_table_entry *)ip;
-    return(itp->inumber);
 }

@@ -10,8 +10,9 @@
  *
  * These are buggy as well..
  */
- 
-#include <linux/types.h>
+
+#include <stdlib.h>
+#include <sys/types.h>
 
 char * ___strtok = NULL;
 
@@ -183,16 +184,6 @@ void * memset(void * s, int c, size_t count)
 	return s;
 }
 
-char * bcopy(const char * src, char * dest, int count)
-{
-	char *tmp = dest;
-
-	while (count--)
-		*tmp++ = *src++;
-
-	return dest;
-}
-
 void * memcpy(void * dest,const void *src,size_t count)
 {
 	char *tmp = (char *) dest, *s = (char *) src;
@@ -232,20 +223,4 @@ int memcmp(const void * cs,const void * ct,size_t count)
 		if ((res = *su1 - *su2) != 0)
 			break;
 	return res;
-}
-
-/*
- * find the first occurrence of byte 'c', or 1 past the area if none
- */
-void * memscan(void * addr, unsigned char c, size_t size)
-{
-	unsigned char * p = (unsigned char *) addr;
-
-	while (size) {
-		if (*p == c)
-			return (void *) p;
-		p++;
-		size--;
-	}
-  	return (void *) p;
 }

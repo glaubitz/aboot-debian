@@ -1,4 +1,4 @@
-/* 
+/*
  * This code is based on the ISO filesystem support in MILO (by
  * Dave Rusling).
  *
@@ -6,14 +6,10 @@
  * functionality to the Linux bootstrapper.  All we can do is
  * open and read files... but that's all we need 8-)
  */
-#include <linux/kernel.h>
-#include <linux/config.h>
-#include <linux/types.h>
-#include <linux/stat.h>
-#include <linux/kdev_t.h>
-#include <asm/page.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
-#include "string.h"
+#include <string.h>
 #include "iso.h"
 #include "isolib.h"
 #include "utils.h"
@@ -258,7 +254,7 @@ iso_iget (int ino)
 		for(i=0; i< raw_inode->name_len[0]; i++)
 			if(raw_inode->name[i]=='.' || raw_inode->name[i]==';')
 				break;
-		if(i == raw_inode->name_len[0] || raw_inode->name[i] == ';') 
+		if(i == raw_inode->name_len[0] || raw_inode->name[i] == ';')
 			itp->mode |= S_IXUGO; /* execute permission */
 	}
 
@@ -280,7 +276,7 @@ iso_iget (int ino)
 	 * holler.  WARNING: this will make it impossible for a file
 	 * to be > 16Mb on the CDROM!!!
 	 */
-	if(sb.s_cruft == 'y' && 
+	if(sb.s_cruft == 'y' &&
 	   itp->size & 0xff000000)
 	{
 		itp->size &= 0x00ffffff;
@@ -306,13 +302,13 @@ iso_iget (int ino)
 	}
 #endif
 
-	inode->i_first_extent = (isonum_733 (raw_inode->extent) + 
+	inode->i_first_extent = (isonum_733 (raw_inode->extent) +
 				 isonum_711 (raw_inode->ext_attr_length))
 					 << sb.s_log_zone_size;
 
 	/* Now we check the Rock Ridge extensions for further info */
 
-	if (sb.s_rock) 
+	if (sb.s_rock)
 		parse_rock_ridge_inode(raw_inode,inode);
 
 	/* Will be used for previous directory */
@@ -401,9 +397,9 @@ iso_find_entry (struct iso_inode *dir, const char *name, int namelen,
 
 	*ino = 0;
 	if (!dir) return -1;
-	
+
 	if (!(block = dir->i_first_extent)) return -1;
-  
+
 	f_pos = 0;
 	offset = 0;
 	block = iso_bmap(dir,f_pos >> bufbits);
@@ -411,7 +407,7 @@ iso_find_entry (struct iso_inode *dir, const char *name, int namelen,
 
 	if (iso_dev_read(data_block, block * sb.s_blocksize, sb.s_blocksize)
 	    != sb.s_blocksize) return -1;
-  
+
 	while (f_pos < itp->size) {
 		de = (struct iso_directory_record *) (data_block + offset);
 		backlink = itp->inumber;
@@ -419,7 +415,7 @@ iso_find_entry (struct iso_inode *dir, const char *name, int namelen,
 
 		/* If byte is zero, this is the end of file, or time to move to
 		   the next sector. Usually 2048 byte boundaries. */
-		
+
 		if (*((unsigned char *) de) == 0) {
 			offset = 0;
 
@@ -457,36 +453,36 @@ iso_find_entry (struct iso_inode *dir, const char *name, int namelen,
 				!= sb.s_blocksize) return 0;
 			memcpy((char *)cpnt+frag1, data_block, offset);
 		}
-		
+
 		/* Handle the '.' case */
-		
+
 		if (de->name[0]==0 && de->name_len[0]==1) {
 		  inode_number = itp->inumber;
 		  backlink = 0;
 		}
-		
+
 		/* Handle the '..' case */
 
 		if (de->name[0]==1 && de->name_len[0]==1) {
 
 		  if((int) sb.s_firstdatazone != itp->inumber)
-  		    inode_number = (isonum_733(de->extent) + 
+  		    inode_number = (isonum_733(de->extent) +
 			  	    isonum_711(de->ext_attr_length))
 				    << sb.s_log_zone_size;
 		  else
 		    inode_number = itp->inumber;
 		  backlink = 0;
 		}
-    
+
 		{
 		  /* should be sufficient, since get_rock_ridge_filename
 		   * truncates at 254 chars */
-		  char retname[256]; 
+		  char retname[256];
 		  dlen = get_rock_ridge_filename(de, retname, dir);
 		  if (dlen) {
 		    strcpy(de->name, retname);
 		  } else {
-		    dlen = isonum_711(de->name_len);
+		    dlen = isonum_711((char *) de->name_len);
 		    if(sb.s_mapping == 'n') {
 		      for (i = 0; i < dlen; i++) {
 			c = de->name[i];
@@ -511,7 +507,7 @@ iso_find_entry (struct iso_inode *dir, const char *name, int namelen,
 		 */
 		match = 0;
 		if(   !(de->flags[-sb.s_high_sierra] & 5)
-		   || sb.s_unhide == 'y' ) 
+		   || sb.s_unhide == 'y' )
 		{
 		  match = iso_match(namelen, name, de->name, dlen);
 		}
@@ -573,14 +569,14 @@ iso_lookup(struct iso_inode *dir, const char *name)
 	first = last = 0;
 	while (last < (int) strlen(name)) {
 		if (name[last] == '/') {
-			if (iso_find_entry(dir, &name[first], last - first, 
-					   &ino, &ino_back)) 
+			if (iso_find_entry(dir, &name[first], last - first,
+					   &ino, &ino_back))
 				return NULL;
 			/* throw away the old directory inode, we
 			   don't need it anymore */
 			iso_iput(dir);
 
-			if (!(dir = iso_iget(ino))) 
+			if (!(dir = iso_iget(ino)))
 				return NULL;
 			first = last + 1;
 			last = first;
@@ -605,21 +601,22 @@ iso_lookup(struct iso_inode *dir, const char *name)
 	 * and writing to u.isofs_i would only cause memory
 	 * corruption).
 	 */
-	result->i_backlink = ino_back; 
-	
+	result->i_backlink = ino_back;
+
 	iso_iput(dir);
 	return result;
 }
 
 /* follow a symbolic link, returning the inode of the file it points to */
 static struct iso_inode *
-iso_follow_link(struct iso_inode *from, const char *basename) 
+iso_follow_link(struct iso_inode *from, const char *basename)
 {
 	struct inode_table_entry *itp = (struct inode_table_entry *)from;
 	struct iso_inode *root = iso_iget(root_inode);
+	/* HK: iso_iget expects an "int" but root_inode is "long" ?? */
 	struct iso_inode *result = NULL;
 	char *linkto;
-	
+
 #ifdef DEBUG_ISO
 	printf("iso_follow_link(%s): ",basename);
 #endif
@@ -627,9 +624,9 @@ iso_follow_link(struct iso_inode *from, const char *basename)
 	if (!S_ISLNK(itp->mode)) /* Hey, that's not a link! */
 		return NULL;
 
-	if (!itp->size) 
+	if (!itp->size)
 		return NULL;
-	
+
 	if (!(linkto = get_rock_ridge_symlink(from)))
 		return NULL;
 
@@ -637,7 +634,7 @@ iso_follow_link(struct iso_inode *from, const char *basename)
 #ifdef DEBUG_ISO
 	printf("%s->%s\n",basename,linkto ? linkto : "[failed]");
 #endif
-	
+
 	/* Resolve relative links. */
 
 	if (linkto[0] !='/') {
@@ -669,9 +666,9 @@ iso_follow_link(struct iso_inode *from, const char *basename)
 static inline unsigned int
 iso_get_last_session (void)
 {
-#ifdef DEBUG_ISO 
+#ifdef DEBUG_ISO
 	printf("iso_get_last_session() called\n");
-#endif	
+#endif
 	return 0;
 }
 
@@ -699,9 +696,9 @@ iso_read_super (void *data, int silent)
 		inode_table[i].inumber = 0;
 	}
 
-#ifdef DEBUG_ISO 
+#ifdef DEBUG_ISO
 	printf("iso_read_super() called\n");
-#endif	
+#endif
 
 	/* set up the block size */
 	sb.s_blocksize = 1024;
@@ -710,8 +707,8 @@ iso_read_super (void *data, int silent)
 	sb.s_high_sierra = high_sierra = 0; /* default is iso9660 */
 
 	vol_desc_start = iso_get_last_session();
-	
-	for (iso_blknum = vol_desc_start+16; iso_blknum < vol_desc_start+100; 
+
+	for (iso_blknum = vol_desc_start+16; iso_blknum < vol_desc_start+100;
 	     iso_blknum++) {
 #ifdef DEBUG_ISO
 		printf("iso_read_super: iso_blknum=%d\n", iso_blknum);
@@ -744,7 +741,7 @@ iso_read_super (void *data, int silent)
 				return -1;
 			if (isonum_711 (vdp->type) == ISO_VD_END)
 				return -1;
-			
+
 			pri = (struct iso_primary_descriptor *)vdp;
 			break;
 		}
@@ -754,25 +751,33 @@ iso_read_super (void *data, int silent)
 			printf("iso: Unable to identify CD-ROM format.\n");
 		return -1;
 	}
-	
+
 	if (high_sierra) {
 		rootp = (struct iso_directory_record *)
 			h_pri->root_directory_record;
+#if 0
+//See http://www.y-adagio.com/public/standards/iso_cdromr/sect_1.htm
+//Section 4.16 and 4.17 for explanation why this check is invalid
 		if (isonum_723 (h_pri->volume_set_size) != 1) {
 			printf("Multi-volume disks not (yet) supported.\n");
 			return -1;
 		};
+#endif
 		sb.s_nzones = isonum_733 (h_pri->volume_space_size);
-		sb.s_log_zone_size = 
+		sb.s_log_zone_size =
 			isonum_723 (h_pri->logical_block_size);
 		sb.s_max_size = isonum_733(h_pri->volume_space_size);
 	} else {
 		rootp = (struct iso_directory_record *)
 			pri->root_directory_record;
+#if 0
+//See http://www.y-adagio.com/public/standards/iso_cdromr/sect_1.htm
+//Section 4.16 and 4.17 for explanation why this check is invalid
 		if (isonum_723 (pri->volume_set_size) != 1) {
 			printf("Multi-volume disks not (yet) supported.\n");
 			return -1;
 		}
+#endif
 		sb.s_nzones = isonum_733 (pri->volume_space_size);
 		sb.s_log_zone_size = isonum_723 (pri->logical_block_size);
 		sb.s_max_size = isonum_733(pri->volume_space_size);
@@ -794,7 +799,7 @@ iso_read_super (void *data, int silent)
 
 	/* RDE: data zone now byte offset! */
 
-	sb.s_firstdatazone = (isonum_733( rootp->extent) 
+	sb.s_firstdatazone = (isonum_733( rootp->extent)
 					 << sb.s_log_zone_size);
 	/*
 	 * The CDROM is read-only, has no nodes (devices) on it, and
@@ -821,14 +826,15 @@ iso_read_super (void *data, int silent)
 	sb.s_cruft = 'n';
 	sb.s_unhide = 'n';
 	/*
-	 * It would be incredibly stupid to allow people to mark every file 
-	 * on the disk as suid, so we merely allow them to set the default 
+	 * It would be incredibly stupid to allow people to mark every file
+	 * on the disk as suid, so we merely allow them to set the default
 	 * permissions.
 	 */
 	sb.s_mode = S_IRUGO & 0777;
 
 	/* return successfully */
 	root_inode = isonum_733 (rootp->extent) << sb.s_log_zone_size;
+	/* HK: isonum_733 returns an "int" but root_inode is a long ? */
 	return 0;
 }
 
@@ -840,7 +846,7 @@ iso_bread (int fd, long blkno, long nblks, char * buffer)
 
 	/* find the inode for this file */
 	inode = &inode_table[fd].inode;
-	return iso_breadi(inode, blkno, nblks, buffer); 
+	return iso_breadi(inode, blkno, nblks, buffer);
 }
 
 
@@ -852,6 +858,7 @@ iso_open (const char *filename)
 
 	/* get the root directory */
 	root = iso_iget(root_inode);
+/* HK: iso_iget expects an "int" but root_inode is "long" ?? */
 	if (!root) {
 		printf("iso9660: get root inode failed\n");
 		return -1;
@@ -874,7 +881,7 @@ iso_open (const char *filename)
 		inode = iso_follow_link(oldinode, filename);
 		iso_iput(oldinode);
 	}
-	if (inode == NULL) 
+	if (inode == NULL)
 		return -1;
 	else {
 		struct inode_table_entry * itp =
@@ -897,7 +904,7 @@ iso_map (int fd, long block)
 	return iso_bmap(&inode_table[fd].inode, block) * sb.s_blocksize;
 }
 
-#include <linux/stat.h>
+#include <sys/stat.h>
 int
 iso_fstat (int fd, struct stat * buf)
 {
@@ -921,8 +928,8 @@ iso_fstat (int fd, struct stat * buf)
  * of teeth.
  *
  * Sorry this function is so ugly. It was written as a way for me to
- * learn how the ISO filesystem stuff works. 
- * 
+ * learn how the ISO filesystem stuff works.
+ *
  * Will Woods, 2/2001
  *
  * Uses data_block
@@ -932,27 +939,27 @@ char *iso_readdir_i(int fd, int rewind) {
     struct iso_directory_record *dirent = 0;
     unsigned int fraglen = 0, block, dirent_len, name_len = 0, oldoffset;
     static unsigned int blockoffset = 0, diroffset = 0;
-    
+
     if (!S_ISDIR(itp->mode)) {
 	printf("Not a directory\n");
 	return NULL;
     }
-    
+
     /* Initial read to this directory, get the first block */
     if (rewind) {
 	blockoffset = diroffset = 0;
-	block = iso_bmap(&itp->inode,0); 
+	block = iso_bmap(&itp->inode,0);
 #ifdef DEBUG_ISO
 	printf("fd #%d, inode %d, first_extent %d, block %u\n",
 	       fd,itp->inumber,itp->inode.i_first_extent,block);
 #endif
 	if (!block) return NULL;
-	
-	if (iso_dev_read(data_block, block * sb.s_blocksize, sb.s_blocksize) 
+
+	if (iso_dev_read(data_block, block * sb.s_blocksize, sb.s_blocksize)
 	    != sb.s_blocksize) return NULL;
     }
 
-    /* keep doing this until we get a filename or we fail */ 
+    /* keep doing this until we get a filename or we fail */
     while (!name_len) {
 	/* set up our dirent pointer into the block of data we've read */
 	dirent = (struct iso_directory_record *) (data_block + blockoffset);
@@ -961,9 +968,9 @@ char *iso_readdir_i(int fd, int rewind) {
 	printf("diroffset=%u, blockoffset=%u, length=%u\n",
 	       diroffset,blockoffset,dirent_len);
 #endif
-    
+
 	/* End of directory listing or end of sector */
-	if (dirent_len == 0) { 
+	if (dirent_len == 0) {
 	    /* round diroffset up to the nearest blocksize */
 	    diroffset = ((diroffset & ~(ISOFS_BLOCK_SIZE - 1))
 			 + ISOFS_BLOCK_SIZE);
@@ -983,7 +990,7 @@ char *iso_readdir_i(int fd, int rewind) {
 		/* Get the next block. */
 		block = iso_bmap(&itp->inode, diroffset>>sb.s_blocksize_bits);
 		if (!block) return NULL;
-		if (iso_dev_read(data_block, block * sb.s_blocksize, sb.s_blocksize) 
+		if (iso_dev_read(data_block, block * sb.s_blocksize, sb.s_blocksize)
 		    != sb.s_blocksize) return NULL;
 
 		/* set the offsets and the pointers properly */
@@ -1001,54 +1008,54 @@ char *iso_readdir_i(int fd, int rewind) {
 	oldoffset = blockoffset;
 	blockoffset += dirent_len;
 	diroffset += dirent_len;
-	
-	/* 
-	 * directory entry spans two blocks - 
-	 * get next block and glue the two halves together 
+
+	/*
+	 * directory entry spans two blocks -
+	 * get next block and glue the two halves together
 	 */
 	if (blockoffset >= sb.s_blocksize) {
-	    fraglen = sb.s_blocksize - oldoffset; 
+	    fraglen = sb.s_blocksize - oldoffset;
 #ifdef DEBUG_ISO
 	    printf("fragmented block: blockoffset = %u, fraglen = %u\n",
 		   blockoffset, fraglen);
 #endif
 	    /* copy the fragment at end of old block to front of new buffer */
 	    memcpy(big_data_block, data_block + oldoffset, fraglen);
-	    
+
 	    /* read the next block into the buffer after the old fragment */
 	    block = iso_bmap(&itp->inode, diroffset >> sb.s_blocksize_bits);
 	    if (!block) return NULL;
-	    if (iso_dev_read(big_data_block + fraglen, block * sb.s_blocksize, sb.s_blocksize) 
+	    if (iso_dev_read(big_data_block + fraglen, block * sb.s_blocksize, sb.s_blocksize)
 		!= sb.s_blocksize) return NULL;
 #ifdef DEBUG_ISO
 	    printf("read %u bytes from offset %u\n",
 		   sb.s_blocksize, block * sb.s_blocksize);
 #endif
-	    
+
 	    blockoffset = 0;
 	    dirent = (struct iso_directory_record *) big_data_block;
 	}
-	
-	/* 
-	 * Everything's cool, let's get the filename. 
-	 * First we need to figure out the length. 
+
+	/*
+	 * Everything's cool, let's get the filename.
+	 * First we need to figure out the length.
 	 */
-	name_len = isonum_711(dirent->name_len);
+	name_len = isonum_711((char *) dirent->name_len);
 #ifdef DEBUG_ISO
 	if (name_len==0) printf("dirent->name_len = 0, skipping.\n");
 #endif
-	
+
 	/* skip '.' and '..' */
 	if (name_len == 1) {
 	    if (dirent->name[0] == (char)0) name_len = 0;
 	    if (dirent->name[0] == (char)1) name_len = 0;
-	} 
+	}
 
 
 	if (sb.s_unhide == 'n') {
 	    /* sb.s_high_sierra is the offset for the position of the flags.
 	       this adjusts for differences between iso9660 and high sierra.
-	       
+
 	       if bit 0 (exists) or bit 2 (associated) are set, we ignore
 	       this record. */
 	    if (dirent->flags[-sb.s_high_sierra] & 5) name_len = 0;
@@ -1058,48 +1065,48 @@ char *iso_readdir_i(int fd, int rewind) {
 	if (name_len) {
 	    /* should be sufficient, since get_rock_ridge_filename truncates
 	       at 254 characters */
-	    char rrname[256]; 
+	    char rrname[256];
 	    if ((name_len = get_rock_ridge_filename(dirent, rrname, &itp->inode))) {
 		rrname[name_len] = '\0';
 		/* it's okay if rrname is longer than dirent->name, because
 		   we're just overwriting parts of the now-useless dirent */
-		strcpy(dirent->name, rrname); 
+		strcpy(dirent->name, rrname);
 	    } else {
 	        int i;
 	        char c;
 		if (sb.s_mapping == 'n') { /* downcase the name */
 		    for (i = 0; i < name_len; i++) {
 			c = dirent->name[i];
-			
-                        /* lower case */ 
-			if ((c >= 'A') && (c <= 'Z')) c |= 0x20; 
-			
+
+                        /* lower case */
+			if ((c >= 'A') && (c <= 'Z')) c |= 0x20;
+
 			/* Drop trailing '.;1' */
-			if ((c == '.') && (i == name_len-3) && 
-			    (dirent->name[i+1] == ';') && 
+			if ((c == '.') && (i == name_len-3) &&
+			    (dirent->name[i+1] == ';') &&
                             (dirent->name[i+2] == '1')) {
-			    name_len -= 3 ; break; 
+			    name_len -= 3 ; break;
 			}
-			
+
 			/* Drop trailing ';1' */
-			if ((c == ';') && (i == name_len-2) && 
+			if ((c == ';') && (i == name_len-2) &&
                             (dirent->name[i+1] == '1')) {
 			    name_len -= 2; break;
 			}
-			
+
 			/* convert ';' to '.' */
-			if (c == ';') 
+			if (c == ';')
 			    c = '.';
-			
+
 			dirent->name[i] = c;
 		    }
 		    dirent->name[name_len] = '\0';
 		}
 	    }
 	}
-	/* now that we're done using it, and it's smaller than a full block, 
+	/* now that we're done using it, and it's smaller than a full block,
 	 * copy big_data_block back into data_block */
-	if (fraglen) { 
+	if (fraglen) {
             int len = sb.s_blocksize - dirent_len;
 	    memcpy(data_block, big_data_block + dirent_len, len);
 #ifdef DEBUG_ISO
@@ -1112,11 +1119,11 @@ char *iso_readdir_i(int fd, int rewind) {
     return dirent->name;
 }
 
-/********************************************************************** 
- * 
+/**********************************************************************
+ *
  * Rock Ridge functions and definitions, from the Linux kernel source.
  * linux/fs/isofs/rock.c, (c) 1992, 1993 Eric Youngdale.
- * 
+ *
  **********************************************************************/
 
 #define SIG(A,B) ((A << 8) | B)
@@ -1175,21 +1182,21 @@ int get_rock_ridge_filename(struct iso_directory_record * de,
   if (!sb.s_rock) return 0;
   *retname = '\0';
 
-  len = sizeof(struct iso_directory_record) + isonum_711(de->name_len);
+  len = sizeof(struct iso_directory_record) + isonum_711((char *) de->name_len);
   if (len & 1) len++;
   chr = ((unsigned char *) de) + len;
   len = *((unsigned char *) de) - len;
   {
     struct rock_ridge * rr;
     int sig;
-    
+
   repeat:
     while (len > 1){ /* There may be one byte for padding somewhere */
       rr = (struct rock_ridge *) chr;
       if (rr->len == 0) break; /* Something got screwed up here */
 
       sig = (chr[0] << 8) + chr[1];
-      chr += rr->len; 
+      chr += rr->len;
       len -= rr->len;
 
       switch(sig){
@@ -1225,7 +1232,7 @@ int get_rock_ridge_filename(struct iso_directory_record * de,
 	};
 	if((strlen(retname) + rr->len - 5) >= 254) {
 	    int i = 254-strlen(retname);
-	    strncat(retname, rr->u.NM.name, i); 
+	    strncat(retname, rr->u.NM.name, i);
 	    retnamlen += i;
 	    truncate = 1;
 	    break;
@@ -1244,7 +1251,7 @@ int get_rock_ridge_filename(struct iso_directory_record * de,
   if (cont_extent) { /* we had a continued record */
       buffer = malloc(cont_size);
       if (!buffer) goto out;
-      if (iso_dev_read(buffer, cont_extent * ISOFS_BLOCK_SIZE + cont_offset, cont_size) 
+      if (iso_dev_read(buffer, cont_extent * ISOFS_BLOCK_SIZE + cont_offset, cont_size)
 	  != cont_size) goto out;
       chr = buffer + cont_offset;
       len = cont_size;
@@ -1278,20 +1285,20 @@ static int parse_rock_ridge_inode(struct iso_directory_record * de,
     /* struct iso_inode * reloc; */
     struct rock_ridge * rr;
     int rootflag;
-    
+
     while (len > 1){ /* There may be one byte for padding somewhere */
       rr = (struct rock_ridge *) chr;
       if (rr->len == 0) goto out; /* Something got screwed up here */
       sig = (chr[0] << 8) + chr[1];
-      chr += rr->len; 
+      chr += rr->len;
       len -= rr->len;
-      
+
       switch(sig){
       case SIG('R','R'):
 #ifdef DEBUG_ROCK
   printf("RR ");
 #endif
-	if((rr->u.RR.flags[0] & 
+	if((rr->u.RR.flags[0] &
  	    (RR_PX | RR_TF | RR_SL | RR_CL)) == 0) goto out;
 	break;
       case SIG('S','P'):
@@ -1363,7 +1370,7 @@ static int parse_rock_ridge_inode(struct iso_directory_record * de,
 	   slp = (struct SL_component *) (((char *) slp) + slp->len + 2);
 
 	   if(slen < 2) {
-	     if(    ((rr->u.SL.flags & 1) != 0) 
+	     if(    ((rr->u.SL.flags & 1) != 0)
 		    && ((oldslp->flags & 1) == 0) ) itp->size += 1;
 	     break;
 	   }
@@ -1443,7 +1450,7 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
 #ifdef DEBUG_ROCK
   printf("get_rock_ridge_symlink(%u): link is %u bytes long\n",itp->inumber, itp->size);
 #endif
-  
+
   if (!sb.s_rock) goto out;
 
   block = itp->inumber >> blockbits;
@@ -1455,18 +1462,18 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
 	  goto out_noread;
 
   pnt = ((unsigned char *) buf) + blockoffset;
-  
+
   raw_inode = ((struct iso_directory_record *) pnt);
-  
+
   /*
    * If we go past the end of the buffer, there is some sort of error.
    */
   if (blockoffset + *pnt > blocksize)
 	goto out_bad_span;
-  
+
   /* Now test for possible Rock Ridge extensions which will override some of
      these numbers in the inode structure. */
-  
+
   SETUP_ROCK_RIDGE(raw_inode, chr, len);
 
  repeat:
@@ -1474,9 +1481,9 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
     rr = (struct rock_ridge *) chr;
     if (rr->len == 0) goto out; /* Something got screwed up here */
     sig = (chr[0] << 8) + chr[1];
-    chr += rr->len; 
+    chr += rr->len;
     len -= rr->len;
-    
+
 #ifdef DEBUG_ROCK
     printf("%c%c ",chr[0],chr[1]);
 #endif
@@ -1495,7 +1502,7 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
        slp = &rr->u.SL.link;
        while (slen > 1){
 	 if (!rpnt){
-	   rpnt = (char *) malloc (itp->size +1);
+	   rpnt = malloc (itp->size +1);
 	   if (!rpnt) goto out;
 	   *rpnt = 0;
 	 };
@@ -1529,7 +1536,7 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
 	    * If there is another SL record, and this component record
 	    * isn't continued, then add a slash.
 	    */
-	   if(    ((rr->u.SL.flags & 1) != 0) 
+	   if(    ((rr->u.SL.flags & 1) != 0)
 	       && ((oldslp->flags & 1) == 0) ) strcat(rpnt,"/");
 	   break;
 	 }
@@ -1551,7 +1558,7 @@ static char * get_rock_ridge_symlink(struct iso_inode *inode)
     };
   };
   MAYBE_CONTINUE(repeat);
-  
+
  out_freebh:
 #ifdef DEBUG_ROCK
   printf("\nget_rock_ridge_symlink() exiting\n");

@@ -37,13 +37,11 @@ const char * prog_name;
 
 static int disk;
 
-
 void
 __memcpy (void * dest, const void * src, size_t n)
 {
 	memcpy (dest, src, n);
 }
-
 
 long
 iso_dev_read (void * buf, long offset, long size)
@@ -55,7 +53,35 @@ iso_dev_read (void * buf, long offset, long size)
 	return read(disk, buf, size);
 }
 
+/* Write a 64-bit quantity out into memory in LITTLE ENDIAN order */
+static void write_64 (unsigned char* out, unsigned long long in)
+{
+	out[0] = in & 0xFF;
+	out[1] = (in >> 8) & 0xFF;
+	out[2] = (in >> 16) & 0xFF;
+	out[3] = (in >> 24) & 0xFF;
+	out[4] = (in >> 32) & 0xFF;
+	out[5] = (in >> 40) & 0xFF;
+	out[6] = (in >> 48) & 0xFF;
+	out[7] = (in >> 56) & 0xFF;
+}
 
+/* Read in a 64-bit LITTLE ENDIAN quantity */
+static unsigned long long read_64 (unsigned char *in)
+{
+	unsigned long long result = 0;
+
+	result |= (unsigned long long) in[0];
+	result |= (unsigned long long) in[1] << 8;
+	result |= (unsigned long long) in[2] << 16;
+	result |= (unsigned long long) in[3] << 24;
+	result |= (unsigned long long) in[4] << 32;
+	result |= (unsigned long long) in[5] << 40;
+	result |= (unsigned long long) in[6] << 48;
+	result |= (unsigned long long) in[7] << 56;
+
+	return result;
+}
 
 int
 main (int argc, char ** argv)
@@ -97,7 +123,7 @@ main (int argc, char ** argv)
 		iso_fstat(aboot_fd, &buf);
 		aboot_size = buf.st_size;
 	}
-		
+
 	aboot_pos = iso_map (aboot_fd, 0);
 
 	printf("%s: %s is at offset %ld and is %lu bytes long\n",
@@ -119,15 +145,16 @@ main (int argc, char ** argv)
 	}
 
 	strcpy((char *) sector, "Linux/Alpha aboot for ISO filesystem.");
-	sector[60] = aboot_size / 512;		/* sector count */
-	sector[61] = aboot_pos / 512;		/* starting LBM */
-	sector[62] = 0;				/* flags */
+	write_64 ((unsigned char *) &sector[60], aboot_size /  512);/* sector count */
+	write_64 ((unsigned char *) &sector[61], aboot_pos /  512); /* starting LBM */
+	write_64 ((unsigned char *) &sector[62], 0);                /* flags */
 
 	/* update checksum: */
 	sum = 0;
-	for (i = 0; i < 63; ++i)
-		sum += sector[i];
-	sector[63] = sum;
+	for (i = 0; i < 63; i++)
+		sum += read_64 ((unsigned char *) &sector[i]);
+
+	write_64 ((unsigned char *) &sector[63], sum);
 
 	if (lseek(disk, 0, SEEK_SET) != 0) {
 		perror("lseek");
@@ -163,7 +190,7 @@ main (int argc, char ** argv)
 		       prog_name, argv[3], rootbin_pos, buf.st_size);
 	}
 
-        
+
 	if (lseek(disk, 16*2048, SEEK_SET) != 16*2048) {
 		perror("lseek");
 		return -1;
@@ -191,13 +218,13 @@ main (int argc, char ** argv)
             exit(1);
         }
         sprintf(root_start,"ROOT START=%ld        ",rootbin_pos/2048);
-        printf("writing %s in application_data of first volume descriptor\n", root_start); 
+        printf("writing %s in application_data of first volume descriptor\n", root_start);
         memcpy(vol_desc.application_data,root_start,strlen(root_start));
 	if (lseek(disk, 16*2048, SEEK_SET) != 16*2048) {
 		perror("lseek");
 		return -1;
 	}
-        
+
 	nbytes = write(disk, &vol_desc, sizeof(vol_desc));
 	if (nbytes != sizeof(vol_desc)) {
           if ((long) nbytes < 0) {
@@ -207,6 +234,6 @@ main (int argc, char ** argv)
 		}
 		exit(1);
 	}
-        
+
 	return 0;
 }

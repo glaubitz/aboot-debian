@@ -6,31 +6,15 @@
  * This file has been ported from the DEC 32-bit Linux version
  * by David Mosberger (davidm@cs.arizona.edu).
  */
-#include <linux/stat.h>
-#include <linux/types.h>
-#include <linux/version.h>
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,0)
-
-#  undef __KERNEL__
-#  include <linux/ext2_fs.h>
-#  define __KERNEL__
-#  include <linux/fs.h>
-
-#else /* Linux 2.4.0 or later */
-
-#  undef __KERNEL__
-#  include <linux/ext2_fs.h>
-#  include <linux/fs.h>
-#  define __KERNEL__
-
-#endif
+#include <sys/stat.h>
+#include <ext2fs/ext2_fs.h>
 
 #include "bootfs.h"
 #include "cons.h"
 #include "disklabel.h"
+#include "ext4.h"
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 
 #define MAX_OPEN_FILES		5
 
@@ -44,11 +28,11 @@ static int directlim;			/* Maximum direct blkno */
 static int ind1lim;			/* Maximum single-indir blkno */
 static int ind2lim;			/* Maximum double-indir blkno */
 static int ptrs_per_blk;		/* ptrs/indirect block */
-static char blkbuf[EXT2_MAX_BLOCK_SIZE];
+static char *blkbuf;
 static int cached_iblkno = -1;
-static char iblkbuf[EXT2_MAX_BLOCK_SIZE];
+static char *iblkbuf;
 static int cached_diblkno = -1;
-static char diblkbuf[EXT2_MAX_BLOCK_SIZE];
+static char *diblkbuf;
 static long dev = -1;
 static long partition_offset;
 
@@ -82,7 +66,7 @@ static int ext2_mount(long cons_dev, long p_offset, long quiet)
 	}
 	/* clear the root inode pointer (very important!) */
 	root_inode = NULL;
-	
+
 	/* read in the first superblock */
 	sb_offset = sb_block * EXT2_MIN_BLOCK_SIZE;
 	if (cons_read(dev, &sb, sizeof(sb), partition_offset + sb_offset)
@@ -91,7 +75,7 @@ static int ext2_mount(long cons_dev, long p_offset, long quiet)
 		printf("ext2 sb read failed\n");
 		return -1;
 	}
-	
+
 	if (sb.s_magic != EXT2_SUPER_MAGIC) {
 		if (!quiet) {
 			printf("ext2_init: bad magic 0x%x\n", sb.s_magic);
@@ -104,10 +88,12 @@ static int ext2_mount(long cons_dev, long p_offset, long quiet)
 		   EXT2_BLOCKS_PER_GROUP(&sb) - 1)
 		/ EXT2_BLOCKS_PER_GROUP(&sb);
 
-	gds = (struct ext2_group_desc *)
-	          malloc((size_t)(ngroups * sizeof(struct ext2_group_desc)));
+	gds = malloc((size_t)(ngroups * sizeof(struct ext2_group_desc)));
 
 	ext2fs.blocksize = EXT2_BLOCK_SIZE(&sb);
+	blkbuf = malloc(ext2fs.blocksize);
+	iblkbuf = malloc(ext2fs.blocksize);
+	diblkbuf = malloc(ext2fs.blocksize);
 
 	/* read in the group descriptors (immediately follows superblock) */
 	cons_read(dev, gds, ngroups * sizeof(struct ext2_group_desc),
@@ -167,13 +153,13 @@ static struct ext2_inode *ext2_iget(int ino)
 #ifdef DEBUG_EXT2
 	printf("ext2_iget: reading %ld bytes at offset %ld "
 	       "(%ld + (%d * %d) + ((%d) %% %d) * %d) "
-	       "(inode %d -> table %d)\n", 
+	       "(inode %d -> table %d)\n",
 	       sizeof(struct ext2_inode), offset, partition_offset,
 	       gds[group].bg_inode_table, ext2fs.blocksize,
 	       ino - 1, EXT2_INODES_PER_GROUP(&sb), EXT2_INODE_SIZE(&sb),
 	       ino, (int) (itp - inode_table));
 #endif
-	if (cons_read(dev, ip, sizeof(struct ext2_inode), offset) 
+	if (cons_read(dev, ip, sizeof(struct ext2_inode), offset)
 	    != sizeof(struct ext2_inode))
 	{
 		printf("ext2_iget: read error\n");
@@ -219,7 +205,6 @@ static void ext2_iput(struct ext2_inode *ip)
  */
 static int ext2_blkno(struct ext2_inode *ip, int blkoff)
 {
-	unsigned int *lp;
 	unsigned int *ilp;
 	unsigned int *dlp;
 	int blkno;
@@ -229,7 +214,6 @@ static int ext2_blkno(struct ext2_inode *ip, int blkoff)
 
 	ilp = (unsigned int *)iblkbuf;
 	dlp = (unsigned int *)diblkbuf;
-	lp = (unsigned int *)blkbuf;
 
 	/* If it's a direct block, it's easy! */
 	if (blkoff <= directlim) {
@@ -289,7 +273,7 @@ static int ext2_blkno(struct ext2_inode *ip, int blkoff)
 		}
 
 		/* Read the indirect block */
-    
+
 		if (cached_iblkno != iblkno) {
 			offset = partition_offset + (long) iblkno * (long) ext2fs.blocksize;
 			if (cons_read(dev, iblkbuf, ext2fs.blocksize, offset)
@@ -313,11 +297,62 @@ static int ext2_blkno(struct ext2_inode *ip, int blkoff)
 	return -1;
 }
 
+static int ext4_breadi(struct ext2_inode *ip, long blkno, long nblks, char *buffer)
+{
+	long tot_bytes = 0;
 
-static int ext2_breadi(struct ext2_inode *ip, long blkno, long nblks,
-		       char *buffer)
+	struct ext4_extent_header *hdr;
+	hdr = (struct ext4_extent_header *)&ip->i_block[0];
+
+	if (hdr->eh_magic != EXT4_EXT_MAGIC) {
+		printf("ext4_breadi: Extent header magic wrong.\n");
+		return -1;
+	}
+
+	if (hdr->eh_entries != 1) {
+		printf("ext4_breadi: Extent entries must be 1.\n");
+		return -1;
+	}
+
+	struct ext4_extent *ext;
+	ext = (struct ext4_extent *)&ip->i_block[3];
+
+	if (ext->ee_block != 0) {
+		printf("ext4_breadi: First logical block must be 0.\n");
+		return -1;
+	}
+
+	if (nblks > ext->ee_len) {
+		printf("ext4_breadi: Request nblks greater than extent len.\n");
+		return -1;
+	}
+
+	long ee_start = ((long)ext->ee_start_hi << 32) + ext->ee_start_lo;
+
+	if (blkno + nblks > ext->ee_len) {
+		nblks = ext->ee_len - blkno;
+	}
+
+	long offset = partition_offset + (ee_start + blkno) * ext2fs.blocksize;
+	long nbytes = nblks * ext2fs.blocksize;
+
+	tot_bytes = cons_read(dev, buffer, nbytes, offset);
+	if (tot_bytes != nbytes) {
+		printf("ext4_breadi: cons_read failed.\n");
+		return -1;
+	}
+
+	return tot_bytes;
+}
+
+static int ext2_breadi(struct ext2_inode *ip, long blkno, long nblks, char *buffer)
 {
 	long dev_blkno, ncontig, offset, nbytes, tot_bytes;
+
+	if (ip->i_flags & EXT4_EXTENTS_FL) {
+		printf("ext2_breadi: This function does not handle ext4 extents\n");
+		return -1;
+	}
 
 	tot_bytes = 0;
 	if ((blkno+nblks)*ext2fs.blocksize > ip->i_size)
@@ -359,6 +394,14 @@ static int ext2_breadi(struct ext2_inode *ip, long blkno, long nblks,
 	return tot_bytes;
 }
 
+static int extn_breadi(struct ext2_inode *ip, long blkno, long nblks, char *buffer) {
+	if (ip->i_flags & EXT4_EXTENTS_FL) {
+		return ext4_breadi(ip, blkno, nblks, buffer);
+	} else {
+		return ext2_breadi(ip, blkno, nblks, buffer);
+	}
+}
+
 static struct ext2_dir_entry_2 *ext2_readdiri(struct ext2_inode *dir_inode,
 					      int rewind)
 {
@@ -370,7 +413,7 @@ static struct ext2_dir_entry_2 *ext2_readdiri(struct ext2_inode *dir_inode,
 		diroffset = 0;
 		blockoffset = 0;
 		/* read first block */
-		if (ext2_breadi(dir_inode, 0, 1, blkbuf) < 0)
+		if (extn_breadi(dir_inode, 0, 1, blkbuf) < 0)
 			return NULL;
 	}
 
@@ -387,7 +430,7 @@ static struct ext2_dir_entry_2 *ext2_readdiri(struct ext2_inode *dir_inode,
 			diroffset);
 #endif
 		/* assume that this will read the whole block */
-		if (ext2_breadi(dir_inode,
+		if (extn_breadi(dir_inode,
 				diroffset / ext2fs.blocksize,
 				1, blkbuf) < 0)
 			return NULL;
@@ -449,7 +492,7 @@ static struct ext2_inode *ext2_namei(const char *name)
 			printf("ext2_namei: looping\n");
 #endif
 		}
-	
+
 #ifdef DEBUG_EXT2
 		printf("ext2_namei: next_ino = %d\n", next_ino);
 #endif
@@ -495,7 +538,8 @@ static int ext2_bread(int fd, long blkno, long nblks, char *buffer)
 {
 	struct ext2_inode * ip;
 	ip = &inode_table[fd].inode;
-	return ext2_breadi(ip, blkno, nblks, buffer);
+
+	return extn_breadi(ip, blkno, nblks, buffer);
 }
 
 /*
@@ -515,7 +559,7 @@ static const char * ext2_readdir(int fd, int rewind)
 	if (ent) {
 		ent->name[ent->name_len] = '\0';
 		return ent->name;
-	} else { 
+	} else {
 		return NULL;
 	}
 }
@@ -530,7 +574,6 @@ static int ext2_fstat(int fd, struct stat* buf)
 	/* fill in relevant fields */
 	buf->st_ino = inode_table[fd].inumber;
 	buf->st_mode = ip->i_mode;
-	buf->st_flags = ip->i_flags;
 	buf->st_nlink = ip->i_links_count;
 	buf->st_uid = ip->i_uid;
 	buf->st_gid = ip->i_gid;
@@ -550,7 +593,7 @@ static struct ext2_inode * ext2_follow_link(struct ext2_inode * from,
 
 	if (from->i_blocks) {
 		linkto = blkbuf;
-		if (ext2_breadi(from, 0, 1, blkbuf) == -1)
+		if (extn_breadi(from, 0, 1, blkbuf) == -1)
 			return NULL;
 #ifdef DEBUG_EXT2
 		printf("long link!\n");
@@ -613,10 +656,14 @@ static void ext2_close(int fd)
 		ext2_iput(&inode_table[fd].inode);
 }
 
-
 struct bootfs ext2fs = {
-	FS_EXT2, 0,
-	ext2_mount,
-	ext2_open,  ext2_bread,  ext2_close,
-	ext2_readdir, ext2_fstat
+	.fs_type = FS_EXT2,
+	.blocksize = 0,
+
+	.mount   = ext2_mount,
+	.open    = ext2_open,
+	.bread   = ext2_bread,
+	.close   = ext2_close,
+	.readdir = ext2_readdir,
+	.fstat   = ext2_fstat,
 };

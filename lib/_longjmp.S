@@ -2,7 +2,7 @@
  * Copyright (c) 1995	David Mosberger (davidm@cs.arizona.edu)
  */
 #include <setjmp.h>
-#include <asm/system.h>
+#include "system.h"
 
 	.extern	printf
 
@@ -16,7 +16,7 @@ _longjmp:
 	lda	$1, JBMAGIC & 0xffff
 	ldah	$1, ((JBMAGIC >> 16) & 0xffff)($1)
 	cmoveq	$0, 1, $0		# ensure $0 != 0
-	
+
 	ldq	$2, JB_MAGIC($16)
 	subq	$1, $2, $1
 	ldq	$30, JB_SP($16)

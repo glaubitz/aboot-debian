@@ -1,15 +1,11 @@
-#include <alloca.h>
-
-#include <linux/kernel.h>
-
 #include <asm/console.h>
-#include <asm/hwrpb.h>
-#include <asm/system.h>
+#include "hwrpb.h"
+#include "system.h"
 
 #include "aboot.h"
 #include "cons.h"
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 
 #ifndef CCB_OPEN_CONSOLE	/* new callback w/ ARM v4 */
 # define CCB_OPEN_CONSOLE 0x07
@@ -20,7 +16,6 @@
 #endif
 
 long cons_dev;			/* console device */
-extern long int dispatch();	/* Need the full 64 bit return here...*/
 
 long
 cons_puts(const char *str, long len)
@@ -36,7 +31,7 @@ cons_puts(const char *str, long len)
 			unsigned v_err   : 1;
 		} s;
 	} ccb_sts;
-	
+
 	for (remaining = len; remaining; remaining -= written) {
 		ccb_sts.l_sts = dispatch(CCB_PUTS, cons_dev, str, remaining);
 		if (!ccb_sts.s.v_err) {
@@ -82,7 +77,7 @@ cons_getenv(long index, char *envval, long maxlen)
 	 * allocated on the stack (which guaranteed to by 8 byte
 	 * aligned).
 	 */
-	char * tmp = alloca(maxlen);
+	char tmp[maxlen];
 	long len;
 
 	len = dispatch(CCB_GET_ENV, index, tmp, maxlen - 1);

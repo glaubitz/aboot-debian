@@ -1,4 +1,4 @@
-/* 
+/*
  * This code is based on the ISO filesystem support in MILO (by
  * Dave Rusling).
  *
@@ -6,6 +6,8 @@
  * functionality to the Linux bootstrapper.  All we can do is
  * open and read files... but that's all we need 8-)
  */
+#include <stdlib.h>
+
 #include <cons.h>
 #include <bootfs.h>
 #include <isolib.h>
@@ -13,8 +15,6 @@
 #ifdef DEBUG_ISO
 #include <utils.h>
 #endif
-
-extern const struct bootfs isofs;
 
 static long cd_device = -1;
 
@@ -29,9 +29,9 @@ iso_dev_read (void * buf, long offset, long size)
 static int
 iso_mount (long cons_dev, long p_offset, long quiet)
 {
-#ifdef DEBUG_ISO 
+#ifdef DEBUG_ISO
 	printf("iso_mount() called\n");
-#endif	
+#endif
 	cd_device = cons_dev;
 	/*
 	 * Read the super block (this determines the file system type
@@ -43,16 +43,17 @@ iso_mount (long cons_dev, long p_offset, long quiet)
 static const char *
 iso_readdir(int fd, int rewind)
 {
-	return iso_readdir_i(fd,rewind); 
+	return iso_readdir_i(fd,rewind);
 }
 
 const struct bootfs iso = {
-  -1,	/* isofs is not partitioned */
-  1024,	/* block size */
-  iso_mount,
-  iso_open,
-  iso_bread,
-  iso_close,
-  iso_readdir,
-  iso_fstat
+	.fs_type = -1, /* isofs is not partitioned */
+	.blocksize = 1024,
+
+	.mount   = iso_mount,
+	.open    = iso_open,
+	.bread   = iso_bread,
+	.close   = iso_close,
+	.readdir = iso_readdir,
+	.fstat   = iso_fstat,
 };

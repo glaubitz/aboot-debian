@@ -4,7 +4,7 @@
  * initial bootloader stuff..
  */
 
-#include <asm/system.h>
+#include "pal.h"
 
 #include <config.h>
 
@@ -19,8 +19,7 @@ __start:
 	.quad	0,0,0,0,0,0,0,0
 1:	br	$27,2f
 2:	ldgp	$29,0($27)
-	lda	$27,main_
-	jsr	$26,($27),main_
+	bsr     $26,main_       !samegp
 	call_pal PAL_halt
 	.end __start
 
@@ -46,7 +45,7 @@ wrent:
 	.align 3
 	.globl wrkgp
 	.ent wrkgp
-wrkgp:	
+wrkgp:
 	.prologue 0
 	call_pal PAL_wrkgp
 	ret ($26)
@@ -55,7 +54,7 @@ wrkgp:
 	.align 3
 	.globl tbi
 	.ent tbi
-tbi:	
+tbi:
 	.prologue 0
         call_pal PAL_tbi
         ret     ($26)
@@ -115,7 +114,7 @@ __do_swppal:
 	.align 3
 	.globl dispatch
 	.ent dispatch
-dispatch:	
+dispatch:
 	.prologue 0
 	subq	$30,80,$30
 	stq	$26,0($30)
@@ -158,7 +157,7 @@ dispatch:
 	.align 3
 	.globl halt
 	.ent halt
-halt:	
+halt:
 	.prologue 0
 	call_pal PAL_halt
 	.end halt

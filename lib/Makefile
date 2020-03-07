@@ -1,11 +1,15 @@
-CC	= gcc
-CPPFLAGS +=  -D__KERNEL__ -I../include
+override CPPFLAGS += -U_FORTIFY_SOURCE -I../include
+override ASFLAGS += $(CPPFLAGS) -D__ASSEMBLY__
+
 ifeq ($(TESTING),)
-CFLAGS	= -Os -Wall -mno-fp-regs -fno-builtin
+ifeq ($(FOREIGN),"yes")
+override CFLAGS	+= -Os -Wall -ffreestanding
 else
-CFLAGS  = -Os -g3 -Wall
+override CFLAGS += -Os -Wall -mno-fp-regs -ffreestanding
 endif
-ASFLAGS	= $(CPPFLAGS) -D__ASSEMBLY__ -traditional
+else
+override CFLAGS += -Os -g3 -Wall
+endif
 
 ifeq ($(TESTING),)
 libaboot.a: vsprintf.o memcpy.o memset.o string.o _setjmp.o \

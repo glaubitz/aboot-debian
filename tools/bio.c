@@ -95,7 +95,7 @@ bread(int blkno, void * blkbuf)
     /* If the buffer is dirty, we need to write it out... */
     if(buflist[lowcount_buf].dirty) {
 #ifdef BIO_DEBUG
-	printf("bread: recycling dirty buffer %d for block %d\n", 
+	printf("bread: recycling dirty buffer %d for block %d\n",
 			lowcount_buf, buflist[lowcount_buf].blkno);
 #endif
 	lseek(bio_fd, buflist[lowcount_buf].blkno * bio_blocksize, 0);
@@ -109,7 +109,7 @@ bread(int blkno, void * blkbuf)
 
     buflist[lowcount_buf].blkno = blkno;
     if(!buflist[lowcount_buf].data) {
-	buflist[lowcount_buf].data = (char *)malloc(bio_blocksize);
+	buflist[lowcount_buf].data = malloc(bio_blocksize);
     }
     lseek(bio_fd, blkno * bio_blocksize, 0);
     if(read(bio_fd,buflist[lowcount_buf].data,bio_blocksize)!=bio_blocksize) {
@@ -156,7 +156,7 @@ bwrite(int blkno, void * blkbuf)
     /* If the buffer is dirty, we need to write it out... */
     if(buflist[lowcount_buf].dirty) {
 #ifdef BIO_DEBUG
-	printf("bwrite: recycling dirty buffer %d for block %d\n", 
+	printf("bwrite: recycling dirty buffer %d for block %d\n",
 			lowcount_buf, buflist[lowcount_buf].blkno);
 #endif
 	lseek(bio_fd, buflist[lowcount_buf].blkno * bio_blocksize, 0);
@@ -170,7 +170,7 @@ bwrite(int blkno, void * blkbuf)
 
     buflist[lowcount_buf].blkno = blkno;
     if(!buflist[lowcount_buf].data) {
-	buflist[lowcount_buf].data = (char *)malloc(bio_blocksize);
+	buflist[lowcount_buf].data = malloc(bio_blocksize);
     }
     buflist[lowcount_buf].last_access = ++bio_counter;
     memcpy(buflist[lowcount_buf].data, blkbuf, bio_blocksize);

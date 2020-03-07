@@ -14,10 +14,13 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <byteswap.h>
 
 #include <sys/stat.h>
 
 #include <e2lib.h>
+#include <ext2fs/ext2_fs.h>
 
 #if defined(__linux__)
 # include <sys/types.h>
@@ -37,11 +40,6 @@ struct  boot_block {
 };
 
 #define CONSOLE_BLOCK_SIZE	512
-
-extern int big_endian;
-extern unsigned short swap16();
-extern unsigned int swap32();
-
 
 int
 main(int argc, char ** argv)
@@ -102,11 +100,11 @@ main(int argc, char ** argv)
     /* Allocate a buffer to hold the entire bootstrap, then read
      * in the text+data segments.
      */
-    bsbuf = (char *)malloc(bootstrap_size);
+    bsbuf = malloc(bootstrap_size);
     memset(bsbuf, 0, bootstrap_size);
     read(infile, bsbuf, bootstrap_size);
     close(infile);
-    
+
     /* Get the inode for the file we want to create */
     ip = ext2_namei(namebuf);
     if(ip) {
@@ -179,21 +177,22 @@ main(int argc, char ** argv)
 	ip->i_links_count = 1;
 	ip->i_blocks = 0;
 	ip->i_flags = 0;	/* Nothing special */
+	ip->osd1.linux1.l_i_version = 0;
 	for(i = 0; i < EXT2_N_BLOCKS; i++) {
 	    ip->i_block[i] = 0;
 	}
-	ip->i_version = 0;
+	ip->i_generation = 0;
 	ip->i_file_acl = 0;
-	ip->i_frag = 0;
-	ip->i_fsize = 0;
-	ip->i_reserved1 = ip->i_pad1 = ip->i_reserved2[0] = 0;
+	ip->osd2.linux2.l_i_blocks_hi = 0;
+	ip->osd2.linux2.l_i_uid_high = 0;
+	ip->osd2.linux2.l_i_gid_high = 0;
 
     }
 
     /* At this point we have an inode for an empty regular file.
      * Fill it up!
      */
-    
+
     bs_start = ext2_fill_contiguous(ip, bootstrap_size/blocksize);
     if(bs_start <= 0) {
 	printf("Cannot allocate blocks for %s... goodbye!\n", argv[2]);
@@ -217,7 +216,7 @@ main(int argc, char ** argv)
     /* Prepare and write out a bootblock */
     memset(iobuf, 0, blocksize);
     bbp = (struct boot_block *)iobuf;
-    
+
     bbp->count = bootstrap_size / CONSOLE_BLOCK_SIZE;
     bbp->lbn   = (bs_start * blocksize) / CONSOLE_BLOCK_SIZE;
     bbp->flags = 0;
@@ -229,20 +228,6 @@ main(int argc, char ** argv)
 	checksum += lbp[i];
     }
     bbp->chk_sum = checksum;
-
-    if(big_endian) {
-	/* Need to flip the bootblock fields so they come out
-	 * right on disk...
-	 */
-	bbp->count   = (((u_int64_t) swap32(bbp->count & 0xffffffff) << 32)
-			| swap32(bbp->count >> 32));
-	bbp->lbn     = (((u_int64_t) swap32(bbp->lbn & 0xffffffff) << 32)
-			| swap32(bbp->lbn >> 32));
-	bbp->flags   = (((u_int64_t) swap32(bbp->flags & 0xffffffff) << 32)
-			| swap32(bbp->flags >> 32));
-	bbp->chk_sum = (((u_int64_t) swap32(bbp->chk_sum & 0xffffffff) << 32)
-			| swap32(bbp->chk_sum >> 32));
-    }
 
     ext2_write_bootblock((char *) bbp);
 

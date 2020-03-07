@@ -4,7 +4,7 @@
  *
  * Michael Schwingen (rincewind@discworld.oche.de).
  */
-#include <asm/system.h>
+#include "system.h"
 
 #include <config.h>
 #include <aboot.h>
@@ -14,22 +14,11 @@
 
 #define BLOCKSIZE (16*SECT_SIZE)
 
-static int dummy_mount(long cons_dev, long p_offset, long quiet);
-static int dummy_bread(int fd, long blkno, long nblks, char *buffer);
-static int dummy_open(const char *filename);
-static void dummy_close(int fd);
-
-struct bootfs dummyfs = {
-	0, BLOCKSIZE,
-	dummy_mount,
-	dummy_open,  dummy_bread,  dummy_close
-};
-
 static long dev = -1;
 
 
 /*
- * Initialize 'filesystem' 
+ * Initialize 'filesystem'
  * Returns 0 if successful, -1 on failure.
  */
 static int
@@ -46,7 +35,6 @@ dummy_mount(long cons_dev, long p_offset, long quiet)
 static int
 dummy_bread(int fd, long blkno, long nblks, char *buffer)
 {
-	extern char _end;
 	static long aboot_size = 0;
 
 	if (!aboot_size) {
@@ -54,7 +42,7 @@ dummy_bread(int fd, long blkno, long nblks, char *buffer)
 		aboot_size &= ~(SECT_SIZE - 1);
 	}
 
-	if (cons_read(dev, buffer, nblks*BLOCKSIZE, 
+	if (cons_read(dev, buffer, nblks*BLOCKSIZE,
 		      BOOT_SECTOR*SECT_SIZE + blkno*BLOCKSIZE + aboot_size)
 	    != nblks*BLOCKSIZE)
 	{
@@ -66,7 +54,7 @@ dummy_bread(int fd, long blkno, long nblks, char *buffer)
 
 
 /*
- * Unix-like open routine.  Returns a small integer 
+ * Unix-like open routine.  Returns a small integer
  * (does not care what file, we say it's OK)
  */
 static int dummy_open(const char *filename)
@@ -78,3 +66,13 @@ static int dummy_open(const char *filename)
 static void dummy_close(int fd)
 {
 }
+
+struct bootfs dummyfs = {
+	.fs_type = 0,
+	.blocksize = BLOCKSIZE,
+
+	.mount = dummy_mount,
+	.open  = dummy_open,
+	.bread = dummy_bread,
+	.close = dummy_close,
+};

@@ -31,12 +31,10 @@
 #include "cons.h"
 #include "disklabel.h"
 #include "utils.h"
-#include "string.h"
+#include <string.h>
 
-#include <linux/elf.h>
 #include <asm/console.h>
-#include <asm/system.h>
-#include <asm/elf.h>
+#include "system.h"
 
 extern struct bootfs ext2fs;
 extern struct bootfs iso;
@@ -46,7 +44,7 @@ extern struct bootfs dummyfs;
 struct disklabel * label;
 int boot_part = -1;
 
-static struct bootfs *bootfs[] = {
+static const struct bootfs *bootfs[] = {
 	&ext2fs,
 	&iso,
 	&ufs
@@ -63,8 +61,7 @@ static struct bootfs *bootfs[] = {
 int
 load_raw (long dev)
 {
-	extern char _end;
-	char *buf;
+	unsigned char *buf;
 	long aboot_size = &_end - (char *) BOOT_ADDR;
 	long ksect = (aboot_size + SECT_SIZE - 1) / SECT_SIZE + BOOT_SECTOR;
 	long nread;
@@ -82,7 +79,7 @@ load_raw (long dev)
 		       nread, (long) SECT_SIZE);
 		return -1;
 	}
-	if (first_block(buf, SECT_SIZE) < 0) {
+	if (!is_loadable_elf(buf, SECT_SIZE)) {
 		return -1;
 	}
 
@@ -95,7 +92,7 @@ load_raw (long dev)
 		dest = malloc(chunks[i].size);
 #else
 		dest = (char *) chunks[i].addr;
-#endif		      
+#endif
 
 		nread = cons_read(dev, dest, chunks[i].size,
 				  chunks[i].offset + ksect * SECT_SIZE);
@@ -119,7 +116,7 @@ load_uncompressed (int fd)
 	buf = malloc(bfs->blocksize);
 
 	/* read ELF headers: */
-	nread = (*bfs->bread)(fd, 0, 1, buf);
+	nread = (*bfs->bread)(fd, 0, 1, (char *) buf);
 	if (nread != bfs->blocksize) {
 		printf("aboot: read returned %ld instead of %ld bytes\n",
 		       nread, sizeof(buf));
@@ -128,7 +125,7 @@ load_uncompressed (int fd)
 #ifdef DEBUG
 	{
 		int i,j,c;
-	
+
 		for(i = 0; i < 16; i++) {
 			for (j = 0; j < 16; j++)
 				printf("%02X ", buf[j+16*i]);
@@ -140,7 +137,7 @@ load_uncompressed (int fd)
 		}
 	}
 #endif
-	if (first_block(buf, bfs->blocksize) < 0) {
+	if (!is_loadable_elf(buf, bfs->blocksize)) {
 		return -1;
 	}
 
@@ -157,7 +154,7 @@ load_uncompressed (int fd)
 		dest = malloc(nblocks * bfs->blocksize);
 #else
 		dest = (char *) chunks[i].addr;
-#endif		      
+#endif
 
 		nread = (*bfs->bread)(fd, chunks[i].offset / bfs->blocksize,
 				      nblocks, dest);
@@ -295,11 +292,11 @@ get_disklabel (long dev)
 }
 
 
-struct bootfs *
+const struct bootfs *
 mount_fs (long dev, int partition)
 {
 	struct d_partition * part;
-	struct bootfs * fs = 0;
+	const struct bootfs * fs = 0;
 	int i;
 
 #ifdef DEBUG
@@ -351,7 +348,7 @@ mount_fs (long dev, int partition)
 }
 
 void
-list_directory (struct bootfs *fs, char *dir)
+list_directory (const struct bootfs *fs, char *dir)
 {
 	int fd = (*fs->open)(dir);
 	/* yes, our readdir() is not exactly like the real one */
@@ -362,7 +359,7 @@ list_directory (struct bootfs *fs, char *dir)
 		printf("%s: directory not found\n", dir);
 		return;
 	}
-	
+
 	while ((ent = (*fs->readdir)(fd, !rewind++))) {
 		printf("%s\n", ent);
 	}
@@ -370,7 +367,7 @@ list_directory (struct bootfs *fs, char *dir)
 }
 
 int
-open_config_file(struct bootfs *fs)
+open_config_file(const struct bootfs *fs)
 {
 	static const char *configs[] = {
 		"/etc/aboot.conf",
@@ -390,7 +387,7 @@ open_config_file(struct bootfs *fs)
 }
 
 void
-print_config_file (struct bootfs *fs)
+print_config_file (const struct bootfs *fs)
 {
 	int fd, nread, blkno = 0;
 	char *buf;
@@ -415,7 +412,7 @@ print_config_file (struct bootfs *fs)
 
 
 int
-get_default_args (struct bootfs *fs, char *str, int num)
+get_default_args (const struct bootfs *fs, char *str, int num)
 {
 	int fd, nread, state, line, blkno = 0;
 	char *buf, *d, *p;
@@ -548,7 +545,7 @@ get_aboot_options (long dev)
 		printf("partition:preset = %ld:%c\n", config_file_partition,
 		       preset);
 #endif
-	} else if (kernel_args[0] 
+	} else if (kernel_args[0]
 		   && (kernel_args[1] == '\0' || kernel_args[1] == ' '))  {
 		/* Single character option, for Jensen and friends -
                    this is either a preconfigured entry in
@@ -575,7 +572,7 @@ get_aboot_options (long dev)
 
 	if (preset || interactive) {
 		char buf[256], *p;
-		struct bootfs *fs = 0;
+		const struct bootfs *fs = 0;
 		static int first = 1;
 		int done = 0;
 
@@ -599,7 +596,7 @@ get_aboot_options (long dev)
 				preset = 0;
 				continue;
 			}
-			
+
 			/* Otherwise, clear out kernel_args and prompt the user */
 			kernel_args[0] = 0;
 			if (first) {
@@ -733,7 +730,7 @@ get_aboot_options (long dev)
 			if (strncmp(p, "initrd=", 7) == 0)
 				break;
 		} while (*p++);
-		
+
 		if (*p) {
 			char *a = p + 7; /* argument */
 			char *e = strchr (a, ' ');
