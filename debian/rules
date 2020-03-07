@@ -40,8 +40,9 @@ endif
 else
 	$(MAKE) -C tools $(TESTING) isomarkboot CC=$(CC) $(shell dpkg-buildflags --export=configure)
 	$(MAKE) -C srmbootfat srmbootfat srmbootfat.1 CC=$(CC) $(shell dpkg-buildflags --export=configure)
-	$(MAKE) -C doc/man isomarkboot.1
-	$(MAKE) -C doc/man/de isomarkboot.de.1 srmbootfat.de.1
+	$(MAKE) -C doc/man
+	$(MAKE) -C doc/man/de
+	rename 's/([a-z]*).([1,5,8])/\1.de.\2/' doc/man/de/*.[1,5,8]
 endif
 
 override_dh_auto_clean:
