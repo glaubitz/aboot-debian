@@ -1,3 +1,19 @@
+aboot (1.0~pre20200212-1) unstable; urgency=medium
+
+  * New upstream version
+  * Set myself as maintainer in debian/control (Closes: #950591)
+  * Add libext2fs-dev to Build-Depends for alpha in debian/control
+  * Drop sgmlspl from Build-Depends in debian/control
+  * Drop sp from Build-Depends in debian/control (Closes: #832491)
+  * Drop sgmltools-lite from Build-Depends-Indep in debian/control (Closes: #949711)
+  * Use rename to adjust filenames for German manpages
+    - Add rename to Build-Depends in debian/control
+    - Run rename to adjust German manpage filenames in debian/rules
+  * Switch package to source format 3.0 (quilt)
+  * Update Vcs-* fields for new Salsa project in debian/control
+
+ -- John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>  Sat, 07 Mar 2020 12:12:47 +0100
+
 aboot (1.0~pre20040408-4) unstable; urgency=low
 
   * Add Vcs-Bzr field to debian/control.
